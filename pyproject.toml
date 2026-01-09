@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "remote-machine"
+version = "0.1.0"
+description = "Pythonic SSH library for remote machine control"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Yechiel Babani", email = "yechielb2000@gmail.com"}
+]
+requires-python = ">=3.10"
+keywords = ["ssh", "remote", "machine", "control", "automation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Shells",
+]
+
+dependencies = [
+    "linux-parsers>=0.2.6",
+    "paramiko>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "mypy>=1.0",
+    "black>=23.0",
+    "isort>=5.0",
+    "flake8>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yechielb2000/remote-machine"
+Repository = "https://github.com/yechielb2000/remote-machine.git"
+Issues = "https://github.com/yechielb2000/remote-machine/issues"
+
+[tool.setuptools]
+packages = ["remote_machine", "remote_machine.models", "remote_machine.protocols", "remote_machine.actions", "remote_machine.utils", "remote_machine.errors"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_mode = 3
+include_trailing_comma = true
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_optional = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=remote_machine --cov-report=term-only"
