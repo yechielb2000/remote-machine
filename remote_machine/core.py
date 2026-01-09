@@ -1,12 +1,5 @@
 """Core RemoteMachine class."""
 
-from remote_machine.actions.device import DeviceAction
-from remote_machine.actions.env import ENVAction
-from remote_machine.actions.fs import FSAction
-from remote_machine.actions.net import NETAction
-from remote_machine.actions.ps import PSAction
-from remote_machine.actions.service import ServiceAction
-from remote_machine.actions.sys import SYSAction
 from remote_machine.models.capabilities import Capabilities
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
@@ -33,7 +26,15 @@ class RemoteMachine:
         self.protocol = SSHProtocol(host, user, key_path, port)
         self.state = RemoteState()
 
-        # Initialize action handlers
+        # Initialize action handlers (imported lazily to avoid import-time side-effects)
+        from remote_machine.actions.fs import FSAction
+        from remote_machine.actions.ps import PSAction
+        from remote_machine.actions.net import NETAction
+        from remote_machine.actions.env import ENVAction
+        from remote_machine.actions.sys import SYSAction
+        from remote_machine.actions.service import ServiceAction
+        from remote_machine.actions.device import DeviceAction
+
         self.fs = FSAction(self.protocol, self.state)
         self.ps = PSAction(self.protocol, self.state)
         self.net = NETAction(self.protocol, self.state)

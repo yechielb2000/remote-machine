@@ -10,7 +10,7 @@ from remote_machine.errors import (
     InvalidArgument,
     Timeout,
 )
-from remote_machine.utils.error_mapper import ErrorMapper
+from remote_machine.errors.error_mapper import ErrorMapper
 
 
 class TestErrorMapper:

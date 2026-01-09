@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.utils.error_mapper import ErrorMapper
+from remote_machine.errors.error_mapper import ErrorMapper
 from remote_machine.models.system_types import (
     UnameInfo,
     UptimeInfo,
@@ -18,46 +18,30 @@ from remote_machine.models.system_types import (
     SystemInfo,
 )
 
-# Optional linux_parsers imports (module-level to avoid in-function imports)
 try:
-    from linux_parsers.parsers.system.proc_uptime import parse_proc_uptime_file as parse_proc_uptime  # type: ignore
-except Exception:
-    try:
-        from linux_parsers.parsers.system.proc_uptime import parse as parse_proc_uptime  # type: ignore
-    except Exception:  # pragma: no cover - optional dependency
-        parse_proc_uptime = None
+    from linux_parsers.parsers.system.proc_uptime import parse as parse_proc_uptime  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    parse_proc_uptime = None
 
 try:
-    from linux_parsers.parsers.system.etc_os_release import parse_etc_os_release_file as parse_etc_os_release  # type: ignore
-except Exception:
-    try:
-        from linux_parsers.parsers.system.etc_os_release import parse as parse_etc_os_release  # type: ignore
-    except Exception:  # pragma: no cover - optional dependency
-        parse_etc_os_release = None
+    from linux_parsers.parsers.system.etc_os_release import parse as parse_etc_os_release  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    parse_etc_os_release = None
 
 try:
-    from linux_parsers.parsers.system.free import parse_free_btlv as parse_free  # type: ignore
-except Exception:
-    try:
-        from linux_parsers.parsers.system.free import parse_free as parse_free  # type: ignore
-    except Exception:  # pragma: no cover - optional dependency
-        parse_free = None
+    from linux_parsers.parsers.system.free import parse_free as parse_free  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    parse_free = None
 
 try:
-    from linux_parsers.parsers.system.proc_cpuinfo import parse_proc_cpuinfo_file as parse_proc_cpuinfo  # type: ignore
-except Exception:
-    try:
-        from linux_parsers.parsers.system.proc_cpuinfo import parse as parse_proc_cpuinfo  # type: ignore
-    except Exception:  # pragma: no cover - optional dependency
-        parse_proc_cpuinfo = None
+    from linux_parsers.parsers.system.proc_cpuinfo import parse as parse_proc_cpuinfo  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    parse_proc_cpuinfo = None
 
 try:
-    from linux_parsers.parsers.system.proc_loadavg import parse_proc_loadavg_file as parse_proc_loadavg  # type: ignore
-except Exception:
-    try:
-        from linux_parsers.parsers.system.proc_loadavg import parse as parse_proc_loadavg  # type: ignore
-    except Exception:  # pragma: no cover - optional dependency
-        parse_proc_loadavg = None
+    from linux_parsers.parsers.system.proc_loadavg import parse as parse_proc_loadavg  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    parse_proc_loadavg = None
 
 
 class SYSAction:
@@ -112,15 +96,25 @@ class SYSAction:
         """Get system uptime, prefer linux_parsers if available."""
         out = self._run("cat /proc/uptime").strip()
 
-        # Prefer linux_parsers when available (module-level import)
+        # Try runtime import to allow tests to monkeypatch sys.modules after import
         seconds = None
-        if parse_proc_uptime:
+        if parse_proc_uptime is not None:
             parsed = parse_proc_uptime(out)
-            # Accept common key names
-            for k in ("uptime", "uptime_seconds", "seconds", "secs", "value"):
-                if isinstance(parsed, dict) and k in parsed:
-                    seconds = float(parsed[k])
-                    break
+        else:
+            try:
+                import importlib
+
+                mod = importlib.import_module("linux_parsers.parsers.system.proc_uptime")
+                _parse = getattr(mod, "parse", None) or getattr(mod, "parse_proc_uptime_file", None)
+            except Exception:
+                _parse = None
+
+            parsed = _parse(out) if _parse else None
+        # Accept common key names
+        for k in ("uptime", "uptime_seconds", "seconds", "secs", "value"):
+            if isinstance(parsed, dict) and k in parsed:
+                seconds = float(parsed[k])
+                break
 
         if seconds is None:
             parts = out.split()
@@ -158,10 +152,21 @@ class SYSAction:
         """Parse /etc/os-release, prefer linux_parsers when available."""
         out = self._run("cat /etc/os-release")
 
-        # Prefer linux_parsers file parser for /etc/os-release (module-level import)
+        # Try runtime import to allow tests to monkeypatch sys.modules after import
         data = {}
-        if parse_etc_os_release:
+        if parse_etc_os_release is not None:
             parsed = parse_etc_os_release(out)
+        else:
+            try:
+                import importlib
+
+                mod = importlib.import_module("linux_parsers.parsers.system.etc_os_release")
+                _parse = getattr(mod, "parse", None) or getattr(mod, "parse_etc_os_release_file", None)
+            except Exception:
+                _parse = None
+
+            parsed = _parse(out) if _parse else None
+        if parsed:
             # Normalized keys
             data["name"] = parsed.get("NAME") or parsed.get("name") or parsed.get("pretty_name") or parsed.get("id") or ""
             data["version"] = parsed.get("VERSION") or parsed.get("version") or parsed.get("version_id") or ""
@@ -197,10 +202,19 @@ class SYSAction:
         """Parse memory info (prefer linux_parsers when available)."""
         out = self._run("free -b")
 
-        # Prefer linux_parsers free parser directly (module-level import)
-        parsed = None
-        if parse_free:
+        # Try runtime import to allow tests to monkeypatch sys.modules after import
+        if parse_free is not None:
             parsed = parse_free(out)
+        else:
+            try:
+                import importlib
+
+                mod = importlib.import_module("linux_parsers.parsers.system.free")
+                _parse = getattr(mod, "parse_free", None) or getattr(mod, "parse_free_btlv", None) or getattr(mod, "parse", None)
+            except Exception:
+                _parse = None
+
+            parsed = _parse(out) if _parse else None
 
         if parsed:
             # Accept multiple key shapes
@@ -281,9 +295,19 @@ class SYSAction:
         """Parse /proc/cpuinfo (prefer linux_parsers when available)."""
         out = self._run("cat /proc/cpuinfo")
 
-        parsed = None
-        if parse_proc_cpuinfo:
-            parsed = parse_proc_cpuinfo(out)
+        # Try runtime import to allow tests to monkeypatch sys.modules after import
+        if parse_proc_cpuinfo is not None:
+            parsed = parse_proc_cpuinfo(self._run("cat /proc/cpuinfo"))
+        else:
+            try:
+                import importlib
+
+                mod = importlib.import_module("linux_parsers.parsers.system.proc_cpuinfo")
+                _parse = getattr(mod, "parse", None) or getattr(mod, "parse_proc_cpuinfo_file", None)
+            except Exception:
+                _parse = None
+
+            parsed = _parse(self._run("cat /proc/cpuinfo")) if _parse else None
 
         if parsed:
             # linux_parsers may return a list of processors or a dict with processors list or summary
@@ -378,9 +402,19 @@ class SYSAction:
         """Parse /proc/loadavg (prefer linux_parsers when available)."""
         out = self._run("cat /proc/loadavg").strip()
 
-        parsed = None
-        if parse_proc_loadavg:
+        # Try runtime import to allow tests to monkeypatch sys.modules after import
+        if parse_proc_loadavg is not None:
             parsed = parse_proc_loadavg(out)
+        else:
+            try:
+                import importlib
+
+                mod = importlib.import_module("linux_parsers.parsers.system.proc_loadavg")
+                _parse = getattr(mod, "parse", None) or getattr(mod, "parse_proc_loadavg_file", None)
+            except Exception:
+                _parse = None
+
+            parsed = _parse(out) if _parse else None
 
         if parsed:
             one = float(parsed.get("one") or parsed.get("1min") or parsed.get("load_1") or parsed.get("load_1m") or 0.0)

@@ -4,6 +4,24 @@ from dataclasses import dataclass
 from datetime import datetime
 
 
+@dataclass
+class PermissionBits:
+
+    read: bool
+    write: bool
+    execute: bool
+
+
+@dataclass
+class Permissions:
+
+    entry_type: str
+    owner: PermissionBits
+    group: PermissionBits
+    others: PermissionBits
+    raw: str
+
+
 @dataclass(frozen=True)
 class FileInfo:
     """File or directory information from stat."""
@@ -31,6 +49,8 @@ class DirectoryEntry:
     size: int
     modified: datetime
     owner: str
+    group: str
+    hard_links: str
     permissions: str
 
 
@@ -48,13 +68,36 @@ class DiskUsage:
     """Disk usage information."""
 
     path: str
-    total: int
+    filesystem: str
+    blocks: int
+    mounted: str
     used: int
     available: int
     percent: float
-    human_total: str
-    human_used: str
-    human_available: str
+
+    @property
+    def total(self) -> int:
+        return self.used + self.available
+
+    @property
+    def human_total(self) -> str:
+        return self._humanize(self.total)
+
+    @property
+    def human_used(self) -> str:
+        return self._humanize(self.used)
+
+    @property
+    def human_available(self) -> str:
+        return self._humanize(self.available)
+
+    @staticmethod
+    def _humanize(size: int):
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size < 1024.0:
+                return f"{size:.1f}{unit}"
+            size /= 1024.0
+        return f"{size:.1f}PB"
 
 
 @dataclass(frozen=True)

@@ -3,24 +3,13 @@ from __future__ import annotations
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.utils.error_mapper import ErrorMapper
+from remote_machine.errors.error_mapper import ErrorMapper
+from linux_parsers.parsers.network.ip import parse_ip_a, parse_ip_r
 
-try:
-    from linux_parsers.parsers.network.ip import parse_ip_a, parse_ip_r  # type: ignore
-    from linux_parsers.parsers.network.ss import parse_ss_tulnap  # type: ignore
-    from linux_parsers.parsers.network.ping import parse_ping  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
-    parse_ip_a = parse_ip_r = parse_ss_tulnap = parse_ping = None
-
-# Data types
 from remote_machine.models.network_types import (
-    IPAddress,
     IPAddressList,
-    Route,
     RoutingTable,
-    TCPConnection,
     ConnectionList,
-    ListeningPort,
     ListeningPortList,
     PingResult,
 )
@@ -52,10 +41,9 @@ class NETAction:
 
     def interfaces(self) -> list[str]:
         """Return list of network interface names."""
-        if parse_ip_a:
-            parsed = parse_ip_a(self._run("ip -o link"))
-            if isinstance(parsed, list):
-                return [p.get("ifname") or p.get("if_name") or p.get("interface") for p in parsed if isinstance(p, dict)]
+        parsed = parse_ip_a(self._run("ip -o link"))
+        if isinstance(parsed, list):
+            return [p.get("ifname") or p.get("if_name") or p.get("interface") for p in parsed if isinstance(p, dict)]
 
         # Fallback: simple parse from `ip a`
         out = self._run("ip a")
@@ -88,10 +76,7 @@ class NETAction:
         """Return list of IP addresses; optionally filter by `interface`. Args: interface"""
         cmd = "ip a" if not interface else f"ip a show dev {interface}"
 
-        if parse_ip_a:
-            parsed = parse_ip_a(self._run(cmd))
-        else:
-            parsed = []
+        parsed = parse_ip_a(self._run(cmd))
 
         from remote_machine.models.network_types import IPAddress, IPAddressList
 
@@ -125,10 +110,7 @@ class NETAction:
         """Return routing table entries as list of dicts."""
         cmd = "ip r"
 
-        if parse_ip_r:
-            parsed = parse_ip_r(self._run(cmd))
-        else:
-            parsed = []
+        parsed = parse_ip_r(self._run(cmd))
 
         from remote_machine.models.network_types import Route, RoutingTable
 

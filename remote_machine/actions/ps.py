@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.utils.error_mapper import ErrorMapper
+from remote_machine.errors.error_mapper import ErrorMapper
 
+from linux_parsers.parsers.process import ps as ps_parsers
 
 class PSAction:
     """Process management operations."""
@@ -27,29 +28,8 @@ class PSAction:
 
     def list(self) -> list[dict]:
         """Return list of process info dicts."""
-        cmd = "ps aux"
-        try:
-            from linux_parsers.parsers.process.ps import parse_ps_aux  # type: ignore
-            parsed = parse_ps_aux(self._run(cmd))
-            if isinstance(parsed, list):
-                return parsed
-        except Exception:
-            pass
-
-        # Fallback: basic parsing of ps aux
-        out = self._run(cmd)
-        results = []
-        lines = [l for l in out.splitlines() if l.strip()]
-        if not lines:
-            return results
-        # header columns
-        header = lines[0]
-        cols = header.split()
-        for line in lines[1:]:
-            parts = line.split(None, len(cols) - 1)
-            entry = {cols[i]: parts[i] for i in range(min(len(cols), len(parts)))}
-            results.append(entry)
-        return results
+        output = self._run("ps aux")
+        return ps_parsers.parse_ps_aux(output)
 
     def list_by_user(self, user: str) -> list[dict]:
         """Return processes for `user` as list of dicts. Args: user"""
