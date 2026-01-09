@@ -200,19 +200,19 @@ RemoteMachine
 └── Models (54 result types)
 ```
 
-### Action Modules
+    ### Action Modules
 
-| Module | Purpose | Methods |
-|--------|---------|---------|
-| **FSAction** | Filesystem operations | 18 methods |
-| **PSAction** | Process management | 12 methods |
-| **NETAction** | Network configuration | 16 methods |
-| **ENVAction** | Environment variables | 10 methods |
-| **SYSAction** | System information | 19 methods |
-| **ServiceAction** | Service management | 18 methods |
-| **DeviceAction** | Device management | 21 methods |
+    | Module | Purpose | Methods |
+    |--------|---------|---------|
+    | **FSAction** | Filesystem operations | 18 methods |
+    | **PSAction** | Process management | 12 methods |
+    | **NETAction** | Network configuration | 16 methods |
+    | **ENVAction** | Environment variables | 10 methods |
+    | **SYSAction** | System information | 19 methods |
+    | **ServiceAction** | Service management | 18 methods |
+    | **DeviceAction** | Device management | 21 methods |
 
-**Total: 114 methods** across all actions
+    **Total: 114 methods** across all actions
 
 ### Result Types
 
