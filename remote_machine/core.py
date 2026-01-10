@@ -3,6 +3,13 @@
 from remote_machine.models.capabilities import Capabilities
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
+from remote_machine.actions.fs import FSAction
+from remote_machine.actions.ps import PSAction
+from remote_machine.actions.net import NETAction
+from remote_machine.actions.env import ENVAction
+from remote_machine.actions.sys import SYSAction
+from remote_machine.actions.service import ServiceAction
+from remote_machine.actions.device import DeviceAction
 
 
 class RemoteMachine:
@@ -13,6 +20,7 @@ class RemoteMachine:
         host: str,
         user: str,
         key_path: str | None = None,
+        password: str | None = None,
         port: int = 22,
     ):
         """Initialize RemoteMachine connection.
@@ -23,17 +31,8 @@ class RemoteMachine:
             key_path: Path to private key file (optional)
             port: SSH port (default 22)
         """
-        self.protocol = SSHProtocol(host, user, key_path, port)
+        self.protocol = SSHProtocol(host, user, key_path, password, port)
         self.state = RemoteState()
-
-        # Initialize action handlers (imported lazily to avoid import-time side-effects)
-        from remote_machine.actions.fs import FSAction
-        from remote_machine.actions.ps import PSAction
-        from remote_machine.actions.net import NETAction
-        from remote_machine.actions.env import ENVAction
-        from remote_machine.actions.sys import SYSAction
-        from remote_machine.actions.service import ServiceAction
-        from remote_machine.actions.device import DeviceAction
 
         self.fs = FSAction(self.protocol, self.state)
         self.ps = PSAction(self.protocol, self.state)
@@ -48,10 +47,11 @@ class RemoteMachine:
         self.protocol.connect()
 
     def disconnect(self) -> None:
-        """Close connection to remote machine."""
+        """Close connection to a remote machine."""
         self.protocol.disconnect()
 
-    def capabilities(self) -> Capabilities:
+    @staticmethod
+    def capabilities() -> Capabilities:
         """Get available capabilities.
 
         Returns:

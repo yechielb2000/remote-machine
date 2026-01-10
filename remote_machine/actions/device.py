@@ -2,7 +2,7 @@
 from __future__ import annotations
 import shlex
 import json
-
+from typing import List
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
 from remote_machine.errors.error_mapper import ErrorMapper
@@ -42,7 +42,7 @@ class DeviceAction:
         ErrorMapper.raise_if_error(result)
         return result.stdout
 
-    def list(self) -> list[DeviceInfo]:
+    def list(self) -> List[DeviceInfo]:
         """Return list of device info."""
         devices = []
 
@@ -68,7 +68,7 @@ class DeviceAction:
 
         return devices
 
-    def list_block(self) -> list[BlockDevice]:
+    def list_block(self) -> List[BlockDevice]:
         """Return list of block device info as BlockDevice dataclasses."""
         try:
             # prefer lsblk JSON output
@@ -110,6 +110,7 @@ class DeviceAction:
                     name = parts[3]
                     devices.append(BlockDevice(name=name, path=f"/dev/{name}", size=int(parts[2]) * 1024, ro=False, fstype=None, uuid=None, label=None, model=None, serial=None))
             return devices
+
     def get_device_info(self, device: str) -> BlockDevice | DeviceInfo:
         """Return detailed info for `device` as BlockDevice or DeviceInfo dataclass.
 
@@ -261,6 +262,7 @@ class DeviceAction:
                 return {"output": output, "source": "acpi"}
         except Exception:
             return {"status": "not_available"}
+
     def enable_device(self, device: str) -> None:
         """Enable `device`. Args: device"""
         # This is hardware-specific and complex
@@ -316,8 +318,9 @@ class DeviceAction:
             return GPIOInfo(pins=pins, total=len(pins), available=len(pins))
         except Exception:
             return GPIOInfo(pins=[], total=0, available=0)
+
     def gpio_read(self, pin: int) -> IDResult:
-        """Read value of GPIO `pin` and return as IDResult (0 or 1). Args: pin"""
+        """Read the value of GPIO `pin` and return as IDResult (0 or 1). Args: pin"""
         try:
             output = self._run(f"cat /sys/class/gpio/gpio{int(pin)}/value")
             return IDResult(key=str(pin), id=int(output.strip()))

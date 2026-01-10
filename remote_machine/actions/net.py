@@ -155,16 +155,14 @@ class NETAction:
 
     def ip_add(self, interface: str, address: str) -> None:
         """Add `address` to `interface` (CIDR ok). Args: interface, address"""
-        cmd = f"ip addr add {shlex.quote(address)} dev {shlex.quote(interface)}"
-        self._run(cmd)
+        self._run(f"ip addr add {shlex.quote(address)} dev {shlex.quote(interface)}")
 
     def ip_delete(self, interface: str, address: str) -> None:
         """Remove `address` from `interface`. Args: interface, address"""
-        cmd = f"ip addr del {shlex.quote(address)} dev {shlex.quote(interface)}"
-        self._run(cmd)
+        self._run(f"ip addr del {shlex.quote(address)} dev {shlex.quote(interface)}")
 
     def ip_list(self, interface: str | None = None) -> IPAddressList:
-        """Return list of IP addresses; optionally filtered by interface."""
+        """Return a list of IP addresses; optionally filtered by interface."""
         cmd = "ip a" if interface is None else f"ip a show dev {shlex.quote(interface)}"
         parsed = parse_ip_a(self._run(cmd))
 
@@ -195,7 +193,7 @@ class NETAction:
         return IPAddressList(addresses=addresses, count=len(addresses))
 
     def route_list(self) -> RoutingTable:
-        """Return routing table entries as list of dicts."""
+        """Return routing table entries as a list of dicts."""
         cmd = "ip r"
 
         parsed = parse_ip_r(self._run(cmd))
@@ -217,8 +215,8 @@ class NETAction:
         return RoutingTable(routes=routes, count=len(routes))
 
     def tcp_connections(self) -> ConnectionList:
-        """Return list of TCP connection dicts."""
-        cmd = "ss -tnp"
+        """Return a list of TCP connection dicts."""
+        cmd = "ss -tulnap"
 
         out = self._run(cmd)
         parsed = parse_ss_tulnap(out)
@@ -257,7 +255,7 @@ class NETAction:
         return ConnectionList(connections=conns, count=len(conns))
 
     def listening_ports(self) -> ListeningPortList:
-        """Return listening port info as list of dicts."""
+        """Return listening port info as a list of dicts."""
         cmd = "ss -tulnap"
 
         out = self._run(cmd)
@@ -292,33 +290,26 @@ class NETAction:
         return ListeningPortList(ports=ports, count=len(ports))
 
     def ping(self, host: str, count: int = 4, timeout: int = 5) -> PingResult:
-        """Ping `host` and return summary dict; use `count` and `timeout`. Args: host, count, timeout"""
-        cmd = f"ping -c {int(count)} -W {int(timeout)} {host}"
-        out = self._run(cmd)
-
+        """Ping `host` and return the summary as PingResult."""
+        out = self._run(f"ping -c {count} -W {timeout} {host}")
         parsed = parse_ping(out)
 
-        transmitted = int(parsed.get("packets_transmitted") or parsed.get("transmitted") or 0)
-        received = int(parsed.get("packets_received") or parsed.get("received") or 0)
-        loss = int(transmitted - received)
-        loss_percent = float(parsed.get("loss") or parsed.get("loss_percent") or 0.0)
+        stats = parsed.get("statistics", {})
+        rtt = parsed.get("rtt", {})
 
-        rtt = parsed.get("rtt") or {}
-        min_time = float(rtt.get("min") or rtt.get("rtt_min") or 0.0)
-        max_time = float(rtt.get("max") or rtt.get("rtt_max") or 0.0)
-        avg_time = float(rtt.get("avg") or rtt.get("rtt_avg") or 0.0)
-        stddev_time = float(rtt.get("mdev") or rtt.get("stddev") or 0.0) if (rtt.get("mdev") or rtt.get("stddev")) else None
+        transmitted = int(stats.get("transmitted") or 0)
+        received = int(stats.get("received") or 0)
 
         return PingResult(
             host=host,
             transmitted=transmitted,
             received=received,
-            packets_lost=loss,
-            loss_percent=loss_percent,
-            min_time=min_time,
-            max_time=max_time,
-            avg_time=avg_time,
-            stddev_time=stddev_time,
+            packets_lost=transmitted - received,
+            loss_percent=float(stats.get("loss") or 0.0),
+            min_time=float(rtt.get("min") or 0.0),
+            max_time=float(rtt.get("max") or 0.0),
+            avg_time=float(rtt.get("avg") or 0.0),
+            stddev_time=rtt.get("mdev") or rtt.get("stddev") or "0.0" if rtt else None,
         )
 
     def up(self, interface: str) -> None:
@@ -363,7 +354,7 @@ class NETAction:
         return DNSResult(hostname=hostname, ipv4_addresses=ipv4, ipv6_addresses=ipv6, canonical_name=cname)
 
     def route_add(self, destination: str, gateway: str, interface: str | None = None) -> None:
-        """Add route to `destination` via `gateway` (optionally `interface`). Args: destination, gateway, interface"""
+        """Add a route to `destination` via `gateway` (optionally `interface`). Args: destination, gateway, interface"""
         cmd = f"ip route add {shlex.quote(destination)} via {shlex.quote(gateway)}"
         if interface:
             cmd += f" dev {shlex.quote(interface)}"
@@ -398,7 +389,7 @@ class NETAction:
             pass
         return FirewallStatus(backend="unknown", status=None, raw=None)
 
-    def bandwidth(self, interface: str | None = None) -> "BandwidthList":
+    def bandwidth(self, interface: str | None = None) -> BandwidthList:
         """Return bandwidth (bytes) RX/TX for all interfaces or a single `interface` using /proc/net/dev."""
         out = self._run("cat /proc/net/dev")
         items: list[BandwidthInfo] = []

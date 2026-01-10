@@ -50,7 +50,6 @@ class DirectoryEntry:
     modified: datetime
     owner: str
     group: str
-    hard_links: str
     permissions: str
 
 

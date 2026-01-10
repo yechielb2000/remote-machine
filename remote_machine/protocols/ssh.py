@@ -1,5 +1,5 @@
 """SSH protocol implementation using Paramiko."""
-
+import paramiko
 from typing import Any
 
 from remote_machine.errors.exceptions import ConnectionError
@@ -14,7 +14,7 @@ class SSHProtocol:
     that don't have paramiko installed won't fail at import time.
     """
 
-    def __init__(self, host: str, user: str, key_path: str | None = None, port: int = 22):
+    def __init__(self, host: str, user: str, key_path: str | None = None, password: str | None = None, port: int = 22):
         """Initialize SSH connection parameters.
 
         Args:
@@ -26,14 +26,13 @@ class SSHProtocol:
         self.host = host
         self.user = user
         self.key_path = key_path
+        self.password = password
         self.port = port
         self._client: Any | None = None
 
     def connect(self) -> None:
         """Establish SSH connection (imports paramiko lazily)."""
         try:
-            import paramiko  # imported lazily
-
             self._client = paramiko.SSHClient()
             self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -49,6 +48,7 @@ class SSHProtocol:
                     self.host,
                     port=self.port,
                     username=self.user,
+                    password=self.password,
                 )
         except Exception as e:
             raise ConnectionError(f"Failed to connect to {self.host}: {e}")

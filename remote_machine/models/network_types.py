@@ -123,7 +123,7 @@ class PingResult:
     min_time: float
     max_time: float
     avg_time: float
-    stddev_time: float | None
+    stddev_time: str | None
 
 
 @dataclass(frozen=True)

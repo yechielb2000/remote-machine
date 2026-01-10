@@ -59,7 +59,6 @@ class FSAction:
                 modified=datetime.strptime(entry["LastModified"], "%b %d %H:%M"),
                 owner=entry["Owner"],
                 group=entry["Group"],
-                hard_links=entry["Hard Links"],
                 permissions=perms
             ))
         return DirectoryListing(entries=entries, count=len(entries), path=resolved_path)

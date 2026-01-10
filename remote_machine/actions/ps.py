@@ -1,20 +1,22 @@
 """Process actions."""
 from __future__ import annotations
 
+import time
+from typing import List
+
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
 from remote_machine.errors.error_mapper import ErrorMapper
 
-from linux_parsers.parsers.process import ps as ps_parsers
+from linux_parsers.parsers.process.ps import parse_ps_aux
 
-import time
 from datetime import datetime
 
 from linux_parsers.parsers.system.free import parse_free_btlv
 
+from remote_machine.models.common_types import BoolResult, OperationResult, CountResult
 from remote_machine.models.process_types import (
     ProcessInfo,
-    ProcessList,
     MemoryUsage,
     CPUUsage,
     ProcessResourceUsage,
@@ -22,7 +24,7 @@ from remote_machine.models.process_types import (
     ProcessChildren,
     ProcessParent,
 )
-from remote_machine.models.common_types import BoolResult, OperationResult, CountResult
+
 
 class PSAction:
     """Process management operations."""
@@ -43,73 +45,44 @@ class PSAction:
         ErrorMapper.raise_if_error(result)
         return result.stdout
 
-    def list(self) -> ProcessList:
+    def list(self) -> List[ProcessInfo]:
         """Return list of process info dataclasses (uses linux_parsers)."""
         output = self._run("ps aux")
-        parsed = ps_parsers.parse_ps_aux(output)
+        parsed = parse_ps_aux(output)
 
-        procs: list[ProcessInfo] = []
-        for p in parsed:
-            # Normalize common keys (tests provide USER/PID/COMMAND)
-            pid = int(p.get("PID") or p.get("pid") or 0)
-            try:
-                ppid = int(p.get("PPID") or p.get("ppid") or 0)
-            except Exception:
-                ppid = 0
-            user = p.get("USER") or p.get("user") or ""
-            command = p.get("COMMAND") or p.get("command") or ""
-            name = command.split()[0] if command else ""
-
-            cpu_percent = float(p.get("%CPU") or p.get("cpu") or 0.0)
-            memory_percent = float(p.get("%MEM") or p.get("mem") or 0.0)
-
-            # We don't have RSS/VMS reliably from ps aux parser here; set to 0 for now
-            memory_rss = int(p.get("RSS") or 0)
-            memory_vms = int(p.get("VSZ") or 0)
-
-            # set started to epoch (best-effort); parsers may provide start time in other fields
-            started = datetime.fromtimestamp(0)
-
-            procs.append(
-                ProcessInfo(
-                    pid=pid,
-                    ppid=ppid,
-                    name=name,
-                    state=p.get("STAT") or p.get("state") or "",
-                    user=user,
-                    cpu_percent=cpu_percent,
-                    memory_percent=memory_percent,
-                    memory_rss=memory_rss,
-                    memory_vms=memory_vms,
-                    started=started,
-                    command=command,
-                )
+        return [
+            ProcessInfo(
+                pid=int(p.get("pid") or 0),
+                ppid=int(p.get("ppid") or 0),
+                name=(cmd := p.get("command") or "") and cmd.split()[0] or "",
+                state=p.get("stat") or "",
+                user=p.get("user") or p.get("USER") or "",
+                cpu_percent=float(p.get("cpu") or 0.0),
+                memory_percent=float(p.get("mem") or 0.0),
+                memory_rss=int(p.get("rss") or 0),
+                memory_vms=int(p.get("vsz") or 0),
+                started=datetime.fromtimestamp(0),
+                command=cmd,
             )
+            for p in parsed
+        ]
 
-        return ProcessList(processes=procs, count=len(procs))
-
-    def list_by_user(self, user: str) -> list[ProcessInfo]:
-        """Return processes for `user` as list of ProcessInfo dataclasses. Args: user"""
-        ps = self.list()
-        return [p for p in ps.processes if p.user == user]
+    def list_by_user(self, user: str) -> List[ProcessInfo]:
+        """Return processes for `user` as a list of ProcessInfo dataclasses. Args: user"""
+        return [p for p in self.list() if p.user == user]
 
     def kill(self, pid: int, signal: int = 15) -> None:
         """Send `signal` to `pid`. Args: pid, signal"""
         self._run(f"kill -{int(signal)} {int(pid)}")
 
-    def find(self, name: str) -> list[ProcessInfo]:
-        """Return processes matching `name` as list of ProcessInfo dataclasses. Args: name"""
-        ps = self.list()
+    def find(self, name: str) -> List[ProcessInfo]:
+        """Return processes matching `name` as a list of ProcessInfo dataclasses. Args: name"""
         lower = name.lower()
-        return [p for p in ps.processes if lower in (p.command or "").lower()]
+        return [p for p in self.list() if lower in (p.command or "").lower()]
 
     def get_info(self, pid: int) -> ProcessInfo | None:
         """Return process details for `pid` or None if not found. Args: pid"""
-        ps = self.list()
-        for p in ps.processes:
-            if p.pid == int(pid):
-                return p
-        return None
+        return [p for p in self.list() if p.pid == pid][0]
 
     def is_running(self, pid: int) -> BoolResult:
         """Return BoolResult indicating if `pid` is running."""
@@ -134,48 +107,43 @@ class PSAction:
                 return ProcessWaitResult(pid=int(pid), exit_code=-1, timed_out=True)
             time.sleep(0.2)
 
-    def count(self, user: str | None = None) -> "CountResult":
-        """Return number of processes (optionally for `user`)."""
+    def count(self, user: str | None = None) -> CountResult:
+        """Return a number of processes (optionally for `user`)."""
         ps = self.list()
+        ps_count = len(ps)
         if user:
-            c = sum(1 for p in ps.processes if p.user == user)
-        else:
-            c = ps.count
-        return CountResult(key=user, count=c)
+            ps_count = sum(1 for p in ps if p.user == user)
+        return CountResult(key=user, count=ps_count)
 
     def memory_usage(self, pid: int | None = None):
         """Return MemoryUsage system-wide or ProcessResourceUsage for pid."""
         if pid is None:
-            parsed = parse_free_btlv(self._run("free -btlv"))
-            if isinstance(parsed, dict) and "Mem" in parsed:
-                mem = parsed.get("Mem")
-            else:
-                mem = parsed
+            mem = parse_free_btlv(self._run("free -btlv")).get("Mem", {})
+            total = int(mem.get("total") or 0)
+            used = int(mem.get("used") or 0)
+            swap_total = int(mem.get("swap_total") or 0)
+            swap_used = int(mem.get("swap_used") or 0)
             return MemoryUsage(
-                total=int(mem.get("total") or 0),
+                total=total,
                 available=int(mem.get("available") or 0),
-                used=int(mem.get("used") or 0),
+                used=used,
                 free=int(mem.get("free") or 0),
-                percent=float((int(mem.get("used") or 0) / int(mem.get("total") or 1)) * 100),
+                percent=(used / total * 100) if total else 0.0,
                 buffers=int(mem.get("buffers") or 0),
                 cached=int(mem.get("cached") or 0),
-                swap_total=int(mem.get("swap_total") or 0),
-                swap_used=int(mem.get("swap_used") or 0),
-                swap_free=int((int(mem.get("swap_total") or 0) - int(mem.get("swap_used") or 0)) or 0),
-                swap_percent=float((int(mem.get("swap_used") or 0) / int(mem.get("swap_total") or 1)) * 100) if int(mem.get("swap_total") or 0) else 0.0,
+                swap_total=swap_total,
+                swap_used=swap_used,
+                swap_free=max(swap_total - swap_used, 0),
+                swap_percent=(swap_used / swap_total * 100) if swap_total else 0.0,
             )
-        else:
-            # per-process, use ps to get RSS/VSZ
-            out = self._run(f"ps -o pid=,rss=,vsz=,pcpu= -p {int(pid)}")
-            parts = out.strip().split()
-            if not parts:
-                return ProcessResourceUsage(pid=int(pid), cpu_percent=0.0, memory_rss=0, memory_vms=0)
-            try:
-                rss = int(parts[1]) * 1024 if len(parts) > 1 else 0
-                vsz = int(parts[2]) * 1024 if len(parts) > 2 else 0
-            except Exception:
-                rss = vsz = 0
-            return ProcessResourceUsage(pid=int(pid), cpu_percent=0.0, memory_rss=rss, memory_vms=vsz)
+
+        out = self._run(f"ps -o pid=,rss=,vsz=,pcpu= -p {pid}").split()
+        return ProcessResourceUsage(
+            pid=pid,
+            cpu_percent=0.0,
+            memory_rss=int(out[1]) * 1024 if len(out) > 1 else 0,
+            memory_vms=int(out[2]) * 1024 if len(out) > 2 else 0
+        )
 
     def cpu_usage(self, pid: int | None = None):
         """Return CPU usage system-wide or per-process."""
@@ -228,22 +196,20 @@ class PSAction:
                 rss = vsz = 0
             return ProcessResourceUsage(pid=int(pid), cpu_percent=cpu, memory_rss=rss, memory_vms=vsz)
 
-    def get_children(self, pid: int) -> "ProcessChildren":
+    def get_children(self, pid: int) -> ProcessChildren:
         """Return child PIDs of `pid`. Args: pid"""
-        ps = self.list()
-        children = [p.pid for p in ps.processes if p.ppid == int(pid)]
+        children = [p.pid for p in self.list() if p.ppid == int(pid)]
         return ProcessChildren(pid=int(pid), children=children, count=len(children))
 
-    def get_parent(self, pid: int) -> "ProcessParent":
+    def get_parent(self, pid: int) -> ProcessParent:
         """Return parent PID for `pid` or None. Args: pid"""
-        ps = self.list()
-        for p in ps.processes:
+        for p in self.list():
             if p.pid == int(pid):
                 return ProcessParent(pid=int(pid), parent=p.ppid if p.ppid != 0 else None)
         return ProcessParent(pid=int(pid), parent=None)
 
-    def nice(self, pid: int, priority: int) -> "OperationResult":
-        """Set nice `priority` for `pid`. Args: pid, priority"""
+    def nice(self, pid: int, priority: int) -> OperationResult:
+        """Set a nice ` priority ` for `pid`. Args: pid, priority"""
         try:
             self._run(f"renice {int(priority)} -p {int(pid)}")
             return OperationResult(success=True, message=None)
