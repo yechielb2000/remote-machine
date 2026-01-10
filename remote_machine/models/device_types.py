@@ -79,6 +79,12 @@ class MountedList:
     mount_points: list[MountPoint]
     count: int
 
+    def options(self, path: str) -> str | None:
+        """Return mount options for `path` (best-effort)."""
+        for m in self.mount_points:
+            if m.mount_point == path:
+                return m.options
+
 
 @dataclass(frozen=True)
 class FSCKResult:

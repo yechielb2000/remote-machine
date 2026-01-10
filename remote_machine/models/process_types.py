@@ -56,6 +56,42 @@ class CPUUsage:
 
 
 @dataclass(frozen=True)
+class ProcessResourceUsage:
+    """Per-process CPU/memory usage."""
+
+    pid: int
+    cpu_percent: float
+    memory_rss: int
+    memory_vms: int
+
+
+@dataclass(frozen=True)
+class ProcessWaitResult:
+    """Wait result for a process."""
+
+    pid: int
+    exit_code: int
+    timed_out: bool
+
+
+@dataclass(frozen=True)
+class ProcessChildren:
+    """Children PIDs list."""
+
+    pid: int
+    children: list[int]
+    count: int
+
+
+@dataclass(frozen=True)
+class ProcessParent:
+    """Parent PID info."""
+
+    pid: int
+    parent: int | None
+
+
+@dataclass(frozen=True)
 class ProcessList:
     """List of processes."""
 

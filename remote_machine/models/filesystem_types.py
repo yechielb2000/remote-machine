@@ -108,3 +108,11 @@ class FileFindResult:
     root_path: str
     matches: list[str]
     count: int
+
+
+@dataclass(frozen=True)
+class FileContent:
+    """File contents wrapper."""
+
+    path: str
+    content: str

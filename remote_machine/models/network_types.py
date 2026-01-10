@@ -13,8 +13,8 @@ class InterfaceInfo:
     isup: bool
     is_running: bool
     mac_address: str
-    ipv4_addresses: list[str]
-    ipv6_addresses: list[str]
+    ipv4_addresses: list[IPv4Address]
+    ipv6_addresses: list[IPv6Address]
     broadcast: str | None
     netmask: str | None
     speed: int | None  # in Mbps
@@ -142,6 +142,23 @@ class BandwidthInfo:
 
 
 @dataclass(frozen=True)
+class BandwidthList:
+    """List of bandwidth usage entries."""
+
+    items: list[BandwidthInfo]
+    count: int
+
+
+@dataclass(frozen=True)
+class FirewallStatus:
+    """Firewall backend status."""
+
+    backend: str
+    status: str | None
+    raw: str | None
+
+
+@dataclass(frozen=True)
 class NetworkStats:
     """Network statistics."""
 
@@ -150,3 +167,11 @@ class NetworkStats:
     total_bytes_received: int
     total_packets_sent: int
     total_packets_received: int
+
+
+@dataclass(frozen=True)
+class InterfaceList:
+    """List of interface names."""
+
+    interfaces: list[str]
+    count: int

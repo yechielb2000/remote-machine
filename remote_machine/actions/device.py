@@ -1,14 +1,27 @@
 """Device management actions."""
 from __future__ import annotations
 import shlex
+import json
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
 from remote_machine.errors.error_mapper import ErrorMapper
 
-from remote_machine.models import (
-    DeviceInfo
+from remote_machine.models.device_types import (
+    BlockDevice,
+    MountedList,
+    MountPoint,
+    FSCKResult,
+    DeviceInfo,
+    TemperatureInfo,
+    PowerStatus,
+    GPIOPin,
+    GPIOInfo,
 )
+from remote_machine.models.common_types import IDResult
+
+
+from linux_parsers.parsers.filesystem.mount import parse_mount
 
 class DeviceAction:
     """Hardware device management operations."""
@@ -55,94 +68,31 @@ class DeviceAction:
 
         return devices
 
-    def list_pci(self) -> list[dict]:
-        """Return list of PCI device info."""
-        try:
-            from linux_parsers.parsers.hardware.lspci import parse as _parse_lspci
-            output = self._run("lspci -v")
-            parsed = _parse_lspci(output)
-
-            if isinstance(parsed, list):
-                return parsed
-        except Exception:
-            pass
-
-        # Fallback parsing
-        try:
-            output = self._run("lspci")
-            devices = []
-
-            for line in output.splitlines():
-                if not line.strip():
-                    continue
-
-                parts = line.split(" ", 2)
-                if len(parts) >= 3:
-                    devices.append({
-                        "address": parts[0],
-                        "class": parts[1].rstrip(":"),
-                        "description": parts[2],
-                        "vendor": "unknown",
-                        "device": "unknown"
-                    })
-
-            return devices
-        except Exception:
-            return []
-
-    def list_usb(self) -> list[dict]:
-        """Return list of USB device info."""
-        try:
-            from linux_parsers.parsers.hardware.lsusb import parse as _parse_lsusb
-            output = self._run("lsusb")
-            parsed = _parse_lsusb(output)
-
-            if isinstance(parsed, list):
-                return parsed
-        except Exception:
-            pass
-
-        # Fallback parsing
-        try:
-            output = self._run("lsusb")
-            devices = []
-
-            for line in output.splitlines():
-                if "Bus" in line and "Device" in line:
-                    parts = line.split()
-                    if len(parts) >= 6:
-                        bus = parts[1]
-                        device = parts[3].rstrip(":")
-                        vendor_product = parts[5]
-                        description = " ".join(parts[6:]) if len(parts) > 6 else ""
-
-                        vendor_id, product_id = vendor_product.split(":")
-
-                        devices.append({
-                            "bus": bus,
-                            "device": device,
-                            "vendor_id": vendor_id,
-                            "product_id": product_id,
-                            "description": description
-                        })
-
-            return devices
-        except Exception:
-            return []
-
-    def list_block(self) -> list[dict]:
-        """Return list of block device info."""
+    def list_block(self) -> list[BlockDevice]:
+        """Return list of block device info as BlockDevice dataclasses."""
         try:
             # prefer lsblk JSON output
-            out = self._run("lsblk -J -o NAME,TYPE,SIZE,MOUNTPOINT")
-            import json
-
+            out = self._run("lsblk -J -o NAME,TYPE,SIZE,MOUNTPOINT,RO,FSTYPE,UUID,LABEL,MODEL,SERIAL")
             j = json.loads(out)
-            # convert to a flat list of devices
-            devices = []
+            devices: list[BlockDevice] = []
+
             def walk(node):
                 if isinstance(node, dict):
-                    devices.append(node)
+                    name = node.get("name") or node.get("NAME") or ""
+                    path = f"/dev/{name}" if name else ""
+                    size_raw = node.get("size") or node.get("SIZE") or "0"
+                    # try to normalize size to bytes if numeric
+                    try:
+                        size = int(node.get("size_bytes") or 0)
+                    except Exception:
+                        size = 0
+                    ro = bool(node.get("ro") or node.get("RO") or False)
+                    fstype = node.get("fstype") or node.get("FSTYPE") or None
+                    uuid = node.get("uuid") or node.get("UUID") or None
+                    label = node.get("label") or node.get("LABEL") or None
+                    model = node.get("model") or None
+                    serial = node.get("serial") or None
+                    devices.append(BlockDevice(name=name, path=path, size=size, ro=ro, fstype=fstype, uuid=uuid, label=label, model=model, serial=serial))
                     for c in node.get("children", []) or []:
                         walk(c)
             for d in j.get("blockdevices", []) or []:
@@ -151,51 +101,62 @@ class DeviceAction:
         except Exception:
             # fallback to /proc/partitions (handle variable headers)
             out = self._run("cat /proc/partitions")
-            devices = []
+            devices: list[BlockDevice] = []
             for line in out.splitlines():
                 if not line.strip() or line.strip().lower().startswith("major"):
                     continue
                 parts = line.split()
                 if len(parts) >= 4:
-                    devices.append({"major": parts[0], "minor": parts[1], "blocks": parts[2], "name": parts[3]})
+                    name = parts[3]
+                    devices.append(BlockDevice(name=name, path=f"/dev/{name}", size=int(parts[2]) * 1024, ro=False, fstype=None, uuid=None, label=None, model=None, serial=None))
             return devices
-
-    def get_device_info(self, device: str) -> dict:
-        """Return detailed info for `device`.
+    def get_device_info(self, device: str) -> BlockDevice | DeviceInfo:
+        """Return detailed info for `device` as BlockDevice or DeviceInfo dataclass.
 
         Args: device: device name or path
         """
         try:
-            # Try to get device info from multiple sources
-            info = {"device": device}
-
-            # Get basic info from /sys
             if not device.startswith("/dev/"):
                 device_path = f"/dev/{device}"
             else:
                 device_path = device
 
+            # attempt to fetch block device info via lsblk
             try:
-                # Get device size
-                size_output = self._run(f"blockdev --getsize64 {device_path}")
-                info["size"] = int(size_output.strip())
+                out = self._run(f"lsblk -J -o NAME,TYPE,SIZE,RO,FSTYPE,UUID,LABEL,MODEL,SERIAL {shlex.quote(device_path)}")
+                j = json.loads(out)
+                # find the device
+                if j.get("blockdevices"):
+                    for d in j.get("blockdevices"):
+                        if d.get("name") and (f"/dev/{d.get('name')}" == device_path or d.get("name") == device.replace('/dev/', '')):
+                            size = int(d.get("size_bytes") or 0) if d.get("size_bytes") else 0
+                            return BlockDevice(
+                                name=d.get("name"),
+                                path=device_path,
+                                size=size,
+                                ro=bool(d.get("ro") or False),
+                                fstype=d.get("fstype") or None,
+                                uuid=d.get("uuid") or None,
+                                label=d.get("label") or None,
+                                model=d.get("model") or None,
+                                serial=d.get("serial") or None,
+                            )
             except Exception:
                 pass
 
-            try:
-                # Get device model/vendor
-                sys_path = f"/sys/block/{device.replace('/dev/', '')}"
-                model_output = self._run(f"cat {sys_path}/device/model 2>/dev/null || echo ''")
-                vendor_output = self._run(f"cat {sys_path}/device/vendor 2>/dev/null || echo ''")
-
-                info["model"] = model_output.strip()
-                info["vendor"] = vendor_output.strip()
-            except Exception:
-                pass
-
+            # fallback to basic DeviceInfo
+            info = DeviceInfo(
+                name=device.replace('/dev/', ''),
+                device_path=device_path,
+                vendor="",
+                model="",
+                driver=None,
+                enabled=True,
+                power_state="unknown",
+            )
             return info
         except Exception:
-            return {"device": device}
+            return DeviceInfo(name=device, device_path=device, vendor="", model="", driver=None, enabled=False, power_state="unknown")
 
     def mount(self, device: str, path: str, fstype: str | None = None) -> None:
         """Mount `device` at `path` (optional fstype).
@@ -216,44 +177,28 @@ class DeviceAction:
         cmd += f" {shlex.quote(path)}"
         self._run(cmd)
 
-    def mounted(self) -> list[dict]:
-        """Return list of mounted filesystem info."""
-        out = self._run("cat /proc/mounts")
-        try:
-            from linux_parsers.parsers.filesystem.mount import parse as _parse_mount  # type: ignore
-            parsed = _parse_mount(out)
-            if isinstance(parsed, list):
-                return parsed
-        except Exception:
-            pass
+    def mounted(self) -> MountedList:
+        """Return list of mounted filesystem info as MountedList dataclass."""
+        parsed = parse_mount(self._run("cat /proc/mounts"))
 
-        # Fallback: simple parse
-        mounts = []
-        for line in out.splitlines():
-            parts = line.split()
-            if len(parts) >= 3:
-                mounts.append({"device": parts[0], "mount_point": parts[1], "fstype": parts[2]})
-        return mounts
+        mount_points: list[MountPoint] = [
+            MountPoint(
+                device=m.get("device", ""),
+                mount_point=m.get("mount_point", ""),
+                fstype=m.get("filesystem_type", ""),
+                total_size=0,
+                used=0,
+                available=0,
+                percent=0.0,
+                options=",".join(m.get("mount_options", [])),
+            )
+            for m in parsed
+        ]
 
-    def mount_options(self, path: str) -> dict:
-        """Return mount options for `path`.
-
-        Args: path: mount point
-        """
-        mounts = self.mounted()
-        for m in mounts:
-            mp = m.get("mount_point") or m.get("mountpoint") or m.get("target")
-            if mp == path:
-                opts = m.get("options") or m.get("opts")
-                return {"options": opts} if opts else {}
-        return {}
-
-    def fsck(self, device: str, fix: bool = False) -> dict:
-        """Run fsck on `device`, optionally attempting fixes.
-
-        Args: device, fix
-        """
-        import shlex
+        return MountedList(mount_points=mount_points, count=len(mount_points))
+    
+    def fsck(self, device: str, fix: bool = False) -> FSCKResult:
+        """Run fsck on `device`, optionally attempting fixes and return FSCKResult."""
         cmd = f"fsck"
         if fix:
             cmd += " -y"
@@ -263,67 +208,59 @@ class DeviceAction:
 
         try:
             output = self._run(cmd)
-            return {"status": "clean", "output": output, "device": device}
+            status = "clean" if "clean" in output.lower() else "unknown"
+            return FSCKResult(device=device, status=status, errors_found=0, errors_fixed=0, inodes_checked=0, blocks_checked=0, fragments=0)
         except Exception as e:
-            return {"status": "error", "output": str(e), "device": device}
+            return FSCKResult(device=device, status="error", errors_found=1, errors_fixed=0, inodes_checked=0, blocks_checked=0, fragments=0)
 
     def mkfs(self, device: str, fstype: str) -> None:
         """Create filesystem `fstype` on `device`. Args: device, fstype"""
         self._run(f"mkfs.{fstype} {shlex.quote(device)}")
-
-    def smartctl(self, device: str) -> dict:
-        """Return SMART data for `device`. Args: device"""
-        try:
-            from linux_parsers.parsers.hardware.smartctl import parse as _parse_smart
-            output = self._run(f"smartctl -a {shlex.quote(device)}")
-            parsed = _parse_smart(output)
-
-            if isinstance(parsed, dict):
-                return parsed
-        except Exception:
-            pass
-
-        # Fallback parsing
-        try:
-            output = self._run(f"smartctl -a {shlex.quote(device)}")
-            return {"device": device, "output": output, "status": "unknown"}
-        except Exception:
-            return {"device": device, "status": "not_available"}
-
-    def temperature(self, device: str | None = None) -> dict:
-        """Return temperature info for `device` or all devices."""
+        
+    def temperature(self, device: str | None = None) -> TemperatureInfo | dict:
+        """Return temperature info for `device` or a generic structure."""
         try:
             if device:
                 output = self._run(f"hddtemp {shlex.quote(device)}")
-                # Parse hddtemp output
                 if ":" in output:
                     parts = output.split(":")
                     if len(parts) >= 3:
                         temp_str = parts[2].strip()
-                        return {"device": device, "temperature": temp_str}
+                        try:
+                            c = float(temp_str.split(" ")[0])
+                        except Exception:
+                            c = 0.0
+                        f = c * 9.0 / 5.0 + 32.0
+                        return TemperatureInfo(device=device, celsius=c, fahrenheit=f, high_threshold=None, critical_threshold=None, status="ok")
             else:
-                # Get all device temperatures
                 output = self._run("sensors")
+                # best-effort: return first numeric temperature found
+                for line in output.splitlines():
+                    if "+" in line and "°C" in line:
+                        try:
+                            part = line.split("+")[-1]
+                            val = float(part.split("°C")[0].strip())
+                            f = val * 9.0 / 5.0 + 32.0
+                            return TemperatureInfo(device="system", celsius=val, fahrenheit=f, high_threshold=None, critical_threshold=None, status="ok")
+                        except Exception:
+                            continue
                 return {"output": output, "source": "sensors"}
         except Exception:
             pass
 
         return {"status": "not_available"}
 
-    def power_status(self, device: str | None = None) -> dict:
-        """Return power status for `device` or all devices."""
+    def power_status(self, device: str | None = None) -> PowerStatus | dict:
+        """Return power status for `device` or a generic structure."""
         try:
             if device:
-                # Check device power state
                 output = self._run(f"hdparm -C {shlex.quote(device)}")
-                return {"device": device, "output": output}
+                return PowerStatus(device=device, status=output.strip(), power_consumption=None, power_supply=None)
             else:
-                # System power status
                 output = self._run("acpi -a")
                 return {"output": output, "source": "acpi"}
         except Exception:
             return {"status": "not_available"}
-
     def enable_device(self, device: str) -> None:
         """Enable `device`. Args: device"""
         # This is hardware-specific and complex
@@ -358,12 +295,11 @@ class DeviceAction:
         # Firmware updates are extremely device-specific and dangerous
         raise NotImplementedError("Firmware updates require device-specific tools and procedures")
 
-    def gpio_list(self) -> list[dict]:
-        """Return list of GPIO pin info."""
+    def gpio_list(self) -> GPIOInfo:
+        """Return list of GPIO pin info as GPIOInfo dataclass."""
         try:
-            # Try to read GPIO info from /sys/class/gpio
             output = self._run("ls /sys/class/gpio/")
-            gpio_pins = []
+            pins: list[GPIOPin] = []
 
             for line in output.splitlines():
                 if line.startswith("gpio"):
@@ -373,25 +309,20 @@ class DeviceAction:
                             direction = self._run(f"cat /sys/class/gpio/gpio{pin_num}/direction").strip()
                             value = int(self._run(f"cat /sys/class/gpio/gpio{pin_num}/value").strip())
 
-                            gpio_pins.append({
-                                "pin": int(pin_num),
-                                "direction": direction,
-                                "value": value
-                            })
+                            pins.append(GPIOPin(pin=int(pin_num), value=value, direction=direction, active_low=False, available=True))
                         except Exception:
                             continue
 
-            return gpio_pins
+            return GPIOInfo(pins=pins, total=len(pins), available=len(pins))
         except Exception:
-            return []
-
-    def gpio_read(self, pin: int) -> int:
-        """Read value of GPIO `pin` and return 0 or 1. Args: pin"""
+            return GPIOInfo(pins=[], total=0, available=0)
+    def gpio_read(self, pin: int) -> IDResult:
+        """Read value of GPIO `pin` and return as IDResult (0 or 1). Args: pin"""
         try:
-            output = self._run(f"cat /sys/class/gpio/gpio{pin}/value")
-            return int(output.strip())
+            output = self._run(f"cat /sys/class/gpio/gpio{int(pin)}/value")
+            return IDResult(key=str(pin), id=int(output.strip()))
         except Exception:
-            return 0
+            return IDResult(key=str(pin), id=None)
 
     def gpio_write(self, pin: int, value: int) -> None:
         """Write GPIO pin value.

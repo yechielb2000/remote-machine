@@ -13,8 +13,9 @@ from linux_parsers.parsers.filesystem.ls import parse_ls
 from linux_parsers.parsers.filesystem.stat import parse_stat
 from linux_parsers.parsers.filesystem.df import parse_df
 
+from remote_machine.models.common_types import OperationResult
 from remote_machine.models.filesystem_types import (
-    FileInfo, DirectoryEntry, DirectoryListing, DiskUsage, FileFindResult
+    FileContent, FileInfo, DirectoryEntry, DirectoryListing, DiskUsage, FileFindResult
 )
 
 
@@ -63,24 +64,32 @@ class FSAction:
             ))
         return DirectoryListing(entries=entries, count=len(entries), path=resolved_path)
 
-    def cd(self, path: str) -> None:
-        """Change working directory to resolved `path`. Args: path"""
+    def cd(self, path: str) -> OperationResult:
+        """Change working directory to resolved `path` and return OperationResult."""
         resolved_path = self.resolver.resolve(path, self.state.cwd)
         # Verify the directory exists and is accessible
         self._run(f"test -d {shlex.quote(resolved_path)}")
         self.state.cwd = resolved_path
+        return OperationResult(success=True, message=None)
+
+    def read(self, path: str) -> FileContent:
+        """Return file contents for `path` resolved against cwd as FileContent dataclass. Args: path"""
+        resolved_path = self.resolver.resolve(path, self.state.cwd)
+        content = self._run(f"cat {shlex.quote(resolved_path)}")
+        return FileContent(path=resolved_path, content=content)
 
     def read(self, path: str) -> str:
         """Return file contents for `path` resolved against cwd. Args: path"""
         resolved_path = self.resolver.resolve(path, self.state.cwd)
         return self._run(f"cat {shlex.quote(resolved_path)}")
 
-    def write(self, path: str, content: str) -> None:
-        """Write `content` to `path` resolved against cwd. Args: path, content"""
+    def write(self, path: str, content: str) -> OperationResult:
+        """Write `content` to `path` resolved against cwd and return OperationResult."""
         resolved_path = self.resolver.resolve(path, self.state.cwd)
         # Use printf instead of echo for better handling of special characters
         escaped_content = content.replace("'", "'\"'\"'")
         self._run(f"printf '%s' '{escaped_content}' > {shlex.quote(resolved_path)}")
+        return OperationResult(success=True, message=None)
 
     def mkdir(self, path: str, parents: bool = False) -> None:
         """Create directory at `path`; `parents` creates ancestors. Args: path, parents"""

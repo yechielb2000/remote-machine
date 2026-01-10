@@ -13,7 +13,8 @@ from remote_machine.errors import (
 )
 from remote_machine.models import Capabilities, CommandResult, RemoteState
 from remote_machine.protocols import SSHProtocol
-from remote_machine.utils import ErrorMapper, PathResolver
+from remote_machine.errors.error_mapper import ErrorMapper
+from remote_machine.utils import PathResolver
 
 __version__ = "0.1.0"
 

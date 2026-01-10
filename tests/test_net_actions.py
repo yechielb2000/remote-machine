@@ -44,6 +44,10 @@ def test_interfaces_uses_parser(monkeypatch):
     sys.modules["linux_parsers.parsers.network"].ip = ip_mod
     sys.modules["linux_parsers.parsers.network"].ss = ss_mod
     sys.modules["linux_parsers.parsers.network"].ping = ping_mod
+    sys.modules.pop("remote_machine.actions.net", None)
+    from importlib import reload
+    import remote_machine.actions.net as _net_mod
+    reload(_net_mod)
     from remote_machine.actions.net import NETAction
     from remote_machine.models.remote_state import RemoteState
     proto = FakeProtocol({"ip -o link": ""})
@@ -82,6 +86,10 @@ def test_ip_list_uses_parser(monkeypatch):
     sys.modules["linux_parsers.parsers.network"].ip = ip_mod
     sys.modules["linux_parsers.parsers.network"].ss = ss_mod
     sys.modules["linux_parsers.parsers.network"].ping = ping_mod
+    sys.modules.pop("remote_machine.actions.net", None)
+    from importlib import reload
+    import remote_machine.actions.net as _net_mod
+    reload(_net_mod)
     from remote_machine.actions.net import NETAction
     from remote_machine.models.remote_state import RemoteState
     proto = FakeProtocol({"ip a": ""})
@@ -186,8 +194,21 @@ def test_route_list_uses_parser(monkeypatch):
     network_pkg = types.ModuleType("linux_parsers.parsers.network")
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network", network_pkg)
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network.ip", ip_mod)
+    # create minimal stubs for other network parser modules so top-level imports in net.py succeed
+    ss_mod = types.ModuleType("linux_parsers.parsers.network.ss")
+    ss_mod.parse_ss_tulnap = lambda out: []
+    ping_mod = types.ModuleType("linux_parsers.parsers.network.ping")
+    ping_mod.parse_ping = lambda out: {}
+    monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network.ss", ss_mod)
+    monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network.ping", ping_mod)
     # attach submodule to parent package object so `from linux_parsers.parsers.network.ip import ...` works
     sys.modules["linux_parsers.parsers.network"].ip = ip_mod
+    sys.modules["linux_parsers.parsers.network"].ss = ss_mod
+    sys.modules["linux_parsers.parsers.network"].ping = ping_mod
+    sys.modules.pop("remote_machine.actions.net", None)
+    from importlib import reload
+    import remote_machine.actions.net as _net_mod
+    reload(_net_mod)
     from remote_machine.actions.net import NETAction
     from remote_machine.models.remote_state import RemoteState
     proto = FakeProtocol({"ip r": ""})
@@ -213,8 +234,22 @@ def test_ping_uses_parser(monkeypatch):
     network_pkg = types.ModuleType("linux_parsers.parsers.network")
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network", network_pkg)
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network.ping", ping_mod)
+    # create minimal stubs for other network parser modules so top-level imports in net.py succeed
+    ip_mod = types.ModuleType("linux_parsers.parsers.network.ip")
+    ip_mod.parse_ip_a = lambda out: []
+    ip_mod.parse_ip_r = lambda out: []
+    ss_mod = types.ModuleType("linux_parsers.parsers.network.ss")
+    ss_mod.parse_ss_tulnap = lambda out: []
+    monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network.ip", ip_mod)
+    monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network.ss", ss_mod)
     # attach submodule to parent package object so `from linux_parsers.parsers.network.ping import ...` works
     sys.modules["linux_parsers.parsers.network"].ping = ping_mod
+    sys.modules["linux_parsers.parsers.network"].ip = ip_mod
+    sys.modules["linux_parsers.parsers.network"].ss = ss_mod
+    sys.modules.pop("remote_machine.actions.net", None)
+    from importlib import reload
+    import remote_machine.actions.net as _net_mod
+    reload(_net_mod)
     from remote_machine.actions.net import NETAction
     from remote_machine.models.remote_state import RemoteState
     proto = FakeProtocol({"ping": "PING\n---"})

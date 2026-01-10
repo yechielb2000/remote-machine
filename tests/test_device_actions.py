@@ -33,7 +33,7 @@ def test_mounted_uses_parser(monkeypatch):
     d = DeviceAction(proto, RemoteState())
 
     mounts = d.mounted()
-    assert mounts[0]["mount_point"] == "/"
+    assert mounts.mount_points[0].mount_point == "/"
 
 
 def test_list_block_json_and_fallback(monkeypatch):
@@ -41,10 +41,10 @@ def test_list_block_json_and_fallback(monkeypatch):
     d = DeviceAction(proto, RemoteState())
 
     devs = d.list_block()
-    assert any(d.get("name") == "sda" for d in devs)
+    assert any(d.name == "sda" for d in devs)
 
     # fallback to /proc/partitions
     proto2 = FakeProtocol({"lsblk -J": "", "cat /proc/partitions": "major minor  #blocks  name\n   8 0 488386584 sda\n"})
     d2 = DeviceAction(proto2, RemoteState())
     devs2 = d2.list_block()
-    assert any(d.get("name") == "sda" for d in devs2)
+    assert any(d.name == "sda" for d in devs2)
