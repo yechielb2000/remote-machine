@@ -28,7 +28,12 @@ class SSHProtocol:
         self.key_path = key_path
         self.password = password
         self.port = port
-        self._client: Any | None = None
+        self._client: paramiko.SSHClient | None = None
+
+    @property
+    def is_connected(self) -> bool:
+        """Check if SSH client is connected."""
+        return self._client is not None
 
     def connect(self) -> None:
         """Establish SSH connection (imports paramiko lazily)."""

@@ -1,6 +1,10 @@
 """Remote state tracking - cwd and environment variables."""
 
 from dataclasses import dataclass, field
+from copy import deepcopy
+from typing import List
+
+from remote_machine.models.proxy_types import Proxy
 
 
 @dataclass
@@ -9,7 +13,10 @@ class RemoteState:
 
     cwd: str = "/"
     env: dict[str, str] = field(default_factory=dict)
+    uid: int | None = None
+    has_sudo: bool = False
+    proxies: List[Proxy] = field(default_factory=list)
 
     def copy(self) -> "RemoteState":
         """Create a deep copy of the state."""
-        return RemoteState(cwd=self.cwd, env=self.env.copy())
+        return deepcopy(self)

@@ -52,3 +52,9 @@ class Timeout(CommandError):
     """Operation timed out."""
 
     pass
+
+
+class ProtocolNotAvailable(RemoteError):
+    """Protocol not available."""
+
+    pass

@@ -7,6 +7,7 @@ from remote_machine.errors.exceptions import (
     InvalidArgument,
     NotFound,
     PermissionDenied,
+    ProtocolNotAvailable,
     RemoteError,
     Timeout,
 )
@@ -19,5 +20,6 @@ __all__ = [
     "NotFound",
     "AlreadyExists",
     "InvalidArgument",
+    "ProtocolNotAvailable",
     "Timeout",
 ]

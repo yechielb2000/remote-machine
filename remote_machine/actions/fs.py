@@ -5,6 +5,8 @@ import shlex
 from typing import List
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
+from remote_machine.protocols.scp import SCPProtocol
+from remote_machine.utils.decorators import requires_protocols
 from remote_machine.utils.fs_utils import parse_permissions
 from remote_machine.utils.path_resolver import PathResolver
 from remote_machine.errors.error_mapper import ErrorMapper
@@ -213,16 +215,12 @@ class FSAction:
             count=len(matches)
         )
 
-    def download(self, remote_path: str, local_path: str) -> None:
-        """Download `remote_path` to local `local_path`. Args: remote_path, local_path"""
-        resolved_path = self.resolver.resolve(remote_path, self.state.cwd)
-        # This would require SFTP implementation in the protocol
-        # For now, raise NotImplementedError
-        raise NotImplementedError("Download functionality requires SFTP implementation")
+    @requires_protocols("scp")
+    def download(self, remote_path: str, local_path: str):
+        scp: SCPProtocol = self._rm.protocol("scp")
+        return scp.download(remote_path, local_path)
 
+    @requires_protocols("scp")
     def upload(self, local_path: str, remote_path: str) -> None:
-        """Upload `local_path` to `remote_path` (remote resolved). Args: local_path, remote_path"""
-        resolved_path = self.resolver.resolve(remote_path, self.state.cwd)
-        # This would require SFTP implementation in the protocol
-        # For now, raise NotImplementedError
-        raise NotImplementedError("Upload functionality requires SFTP implementation")
+        scp: SCPProtocol = self._rm.protocol("scp")
+        return scp.upload(local_path, remote_path)
