@@ -56,17 +56,17 @@ class RemoteMachine:
         self.state = RemoteState()
 
         # Actions
-        self.fs = FSAction(self, self.state)
-        self.ps = PSAction(self, self.state)
-        self.net = NETAction(self, self.state)
-        self.env = ENVAction(self, self.state)
-        self.sys = SYSAction(self, self.state)
-        self.service = ServiceAction(self, self.state)
-        self.device = DeviceAction(self, self.state)
-        self.docker = DockerAction(self, self.state)
-        self.git = GitAction(self, self.state)
-        self.firewall = FirewallAction(self, self.state)
-        self.cron = CronAction(self, self.state)
+        self.fs = FSAction(ssh, self.state)
+        self.ps = PSAction(ssh, self.state)
+        self.net = NETAction(ssh, self.state)
+        self.env = ENVAction(ssh, self.state)
+        self.sys = SYSAction(ssh, self.state)
+        self.service = ServiceAction(ssh, self.state)
+        self.device = DeviceAction(ssh, self.state)
+        self.docker = DockerAction(ssh, self.state)
+        self.git = GitAction(ssh, self.state)
+        self.firewall = FirewallAction(ssh, self.state)
+        self.cron = CronAction(ssh, self.state)
         self.proxy = ProxyAction(self)
 
     def connection_layer(self, layer_index: int = -1) -> SSHProtocol:
