@@ -224,3 +224,158 @@ class FSAction:
     def upload(self, local_path: str, remote_path: str) -> None:
         scp: SCPProtocol = self._rm.protocol("scp")
         return scp.upload(local_path, remote_path)
+
+    # Archive operations
+    def create_tar(self, source_path: str, archive_path: str, compress: str = "gz") -> OperationResult:
+        """Create a tar archive.
+
+        Args:
+            source_path: Source directory or file to archive
+            archive_path: Path for the output archive file
+            compress: Compression type: 'gz' (gzip), 'bz2' (bzip2), 'xz', or None (uncompressed)
+
+        Returns:
+            OperationResult indicating success or failure
+        """
+        compress_flags = {
+            "gz": "z",
+            "bz2": "j",
+            "xz": "J",
+            None: ""
+        }
+        flag = compress_flags.get(compress, "z")
+        cmd = f"tar -c{flag}f {shlex.quote(archive_path)} -C {shlex.quote(self.resolver.resolve('.'))} {shlex.quote(self.resolver.resolve(source_path))}"
+        self._run(cmd)
+        return OperationResult(success=True, message=f"Archive created: {archive_path}")
+
+    def extract_tar(self, archive_path: str, extract_to: str = ".") -> OperationResult:
+        """Extract a tar archive.
+
+        Args:
+            archive_path: Path to tar archive
+            extract_to: Directory to extract to (default: current directory)
+
+        Returns:
+            OperationResult indicating success or failure
+        """
+        resolved_extract = self.resolver.resolve(extract_to, self.state.cwd)
+        cmd = f"tar -xf {shlex.quote(archive_path)} -C {shlex.quote(resolved_extract)}"
+        self._run(cmd)
+        return OperationResult(success=True, message=f"Archive extracted to: {resolved_extract}")
+
+    def list_tar(self, archive_path: str) -> List[str]:
+        """List contents of a tar archive.
+
+        Args:
+            archive_path: Path to tar archive
+
+        Returns:
+            List of file paths in archive
+        """
+        cmd = f"tar -tf {shlex.quote(archive_path)}"
+        output = self._run(cmd)
+        return [line.strip() for line in output.strip().split("\n") if line.strip()]
+
+    def create_zip(self, source_path: str, archive_path: str, recursive: bool = True) -> OperationResult:
+        """Create a zip archive.
+
+        Args:
+            source_path: Source directory or file to archive
+            archive_path: Path for the output zip file
+            recursive: If True, recursively include directories
+
+        Returns:
+            OperationResult indicating success or failure
+        """
+        recursive_flag = "-r" if recursive else ""
+        cmd = f"zip {recursive_flag} {shlex.quote(archive_path)} {shlex.quote(source_path)}"
+        self._run(cmd)
+        return OperationResult(success=True, message=f"Zip archive created: {archive_path}")
+
+    def extract_zip(self, archive_path: str, extract_to: str = ".") -> OperationResult:
+        """Extract a zip archive.
+
+        Args:
+            archive_path: Path to zip archive
+            extract_to: Directory to extract to (default: current directory)
+
+        Returns:
+            OperationResult indicating success or failure
+        """
+        resolved_extract = self.resolver.resolve(extract_to, self.state.cwd)
+        cmd = f"unzip {shlex.quote(archive_path)} -d {shlex.quote(resolved_extract)}"
+        self._run(cmd)
+        return OperationResult(success=True, message=f"Zip archive extracted to: {resolved_extract}")
+
+    def list_zip(self, archive_path: str) -> List[str]:
+        """List contents of a zip archive.
+
+        Args:
+            archive_path: Path to zip archive
+
+        Returns:
+            List of file paths in archive
+        """
+        cmd = f"unzip -l {shlex.quote(archive_path)}"
+        output = self._run(cmd)
+        # Skip header and footer lines
+        lines = output.strip().split("\n")[3:-2]
+        return [line.split()[-1] for line in lines if line.strip()]
+
+    def compress_gzip(self, source_path: str, archive_path: str = None) -> OperationResult:
+        """Compress a file with gzip.
+
+        Args:
+            source_path: Path to file to compress
+            archive_path: Path for the compressed file (default: source_path.gz)
+
+        Returns:
+            OperationResult indicating success or failure
+        """
+        resolved_source = self.resolver.resolve(source_path, self.state.cwd)
+        if not archive_path:
+            archive_path = f"{resolved_source}.gz"
+        cmd = f"gzip -k {shlex.quote(resolved_source)} -c > {shlex.quote(archive_path)}"
+        self._run(cmd)
+        return OperationResult(success=True, message=f"File compressed: {archive_path}")
+
+    def decompress_gzip(self, archive_path: str, output_path: str = None) -> OperationResult:
+        """Decompress a gzip file.
+
+        Args:
+            archive_path: Path to gzip file
+            output_path: Path for the decompressed file
+
+        Returns:
+            OperationResult indicating success or failure
+        """
+        if not output_path:
+            # Remove .gz extension
+            output_path = archive_path.rstrip(".gz") if archive_path.endswith(".gz") else f"{archive_path}.out"
+        cmd = f"gunzip -k {shlex.quote(archive_path)} -c > {shlex.quote(output_path)}"
+        self._run(cmd)
+        return OperationResult(success=True, message=f"File decompressed: {output_path}")
+
+    def test_archive(self, archive_path: str) -> OperationResult:
+        """Test archive integrity.
+
+        Args:
+            archive_path: Path to archive file
+
+        Returns:
+            OperationResult indicating if archive is valid
+        """
+        # Determine archive type by extension
+        if archive_path.endswith(".tar.gz") or archive_path.endswith(".tgz"):
+            cmd = f"tar -tzf {shlex.quote(archive_path)} > /dev/null"
+        elif archive_path.endswith(".tar.bz2") or archive_path.endswith(".tbz2"):
+            cmd = f"tar -tjf {shlex.quote(archive_path)} > /dev/null"
+        elif archive_path.endswith(".tar"):
+            cmd = f"tar -tf {shlex.quote(archive_path)} > /dev/null"
+        elif archive_path.endswith(".zip"):
+            cmd = f"unzip -t {shlex.quote(archive_path)} > /dev/null"
+        else:
+            return OperationResult(success=False, message="Unknown archive format")
+
+        self._run(cmd)
+        return OperationResult(success=True, message="Archive is valid")

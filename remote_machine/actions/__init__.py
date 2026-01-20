@@ -10,4 +10,8 @@ __all__ = [
     "SYSAction",
     "ServiceAction",
     "DeviceAction",
+    "DockerAction",
+    "GitAction",
+    "FirewallAction",
+    "CronAction",
 ]

@@ -16,6 +16,10 @@ from remote_machine.actions.sys import SYSAction
 from remote_machine.actions.service import ServiceAction
 from remote_machine.actions.device import DeviceAction
 from remote_machine.actions.proxy import ProxyAction
+from remote_machine.actions.docker import DockerAction
+from remote_machine.actions.git import GitAction
+from remote_machine.actions.firewall import FirewallAction
+from remote_machine.actions.cron import CronAction
 from remote_machine.errors import ProtocolNotAvailable, PermissionDenied
 
 
@@ -59,6 +63,10 @@ class RemoteMachine:
         self.sys = SYSAction(self, self.state)
         self.service = ServiceAction(self, self.state)
         self.device = DeviceAction(self, self.state)
+        self.docker = DockerAction(self, self.state)
+        self.git = GitAction(self, self.state)
+        self.firewall = FirewallAction(self, self.state)
+        self.cron = CronAction(self, self.state)
         self.proxy = ProxyAction(self)
 
     def connection_layer(self, layer_index: int = -1) -> SSHProtocol:
@@ -106,7 +114,7 @@ class RemoteMachine:
         """Return currently available protocols and actions."""
         return Capabilities(
             protocols=set(self._protocols.keys()),
-            actions={"fs", "ps", "net", "env", "sys", "service", "device"},
+            actions={"fs", "ps", "net", "env", "sys", "service", "device", "docker", "git", "firewall", "cron"},
         )
 
     def __enter__(self) -> "RemoteMachine":

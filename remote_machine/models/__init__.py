@@ -83,6 +83,40 @@ from remote_machine.models.device_types import (
     USBDevice,
 )
 
+# Docker types
+from remote_machine.models.docker_types import (
+    Container,
+    Image,
+    ContainerStats,
+    DockerInfo,
+)
+
+# Git types
+from remote_machine.models.git_types import (
+    Commit,
+    Branch,
+    RepositoryStatus,
+    RemoteInfo,
+    DiffStat,
+)
+
+# Firewall types
+from remote_machine.models.firewall_types import (
+    FirewallRule,
+    FirewallChain,
+    OpenPort,
+    FirewallStatus,
+)
+
+# Cron types
+from remote_machine.models.cron_types import (
+    CronJob,
+    CronJobExecution,
+    CronSchedule,
+    SystemCronFile,
+    UserCronJobs,
+)
+
 __all__ = [
     # Core
     "Capabilities",
@@ -148,4 +182,26 @@ __all__ = [
     "FirmwareInfo",
     "GPIOPin",
     "GPIOInfo",
+    # Docker
+    "Container",
+    "Image",
+    "ContainerStats",
+    "DockerInfo",
+    # Git
+    "Commit",
+    "Branch",
+    "RepositoryStatus",
+    "RemoteInfo",
+    "DiffStat",
+    # Firewall
+    "FirewallRule",
+    "FirewallChain",
+    "OpenPort",
+    "FirewallStatus",
+    # Cron
+    "CronJob",
+    "CronJobExecution",
+    "CronSchedule",
+    "SystemCronFile",
+    "UserCronJobs",
 ]
