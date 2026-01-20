@@ -6,7 +6,6 @@ from typing import List
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.errors.error_mapper import ErrorMapper
 
 from linux_parsers.parsers.process.ps import parse_ps_aux
 
@@ -39,15 +38,9 @@ class PSAction:
         self.protocol = protocol
         self.state = state
 
-    def _run(self, cmd: str) -> str:
-        """Run a command and raise mapped errors."""
-        result = self.protocol.exec(cmd, self.state)
-        ErrorMapper.raise_if_error(result)
-        return result.stdout
-
     def list(self) -> List[ProcessInfo]:
         """Return list of process info dataclasses (uses linux_parsers)."""
-        output = self._run("ps aux")
+        output = self.protocol.run_command("ps aux", self.state)
         parsed = parse_ps_aux(output)
 
         return [
@@ -73,7 +66,7 @@ class PSAction:
 
     def kill(self, pid: int, signal: int = 15) -> None:
         """Send `signal` to `pid`. Args: pid, signal"""
-        self._run(f"kill -{int(signal)} {int(pid)}")
+        self.protocol.run_command(f"kill -{int(signal)} {int(pid)}", self.state)
 
     def find(self, name: str) -> List[ProcessInfo]:
         """Return processes matching `name` as a list of ProcessInfo dataclasses. Args: name"""
@@ -118,7 +111,7 @@ class PSAction:
     def memory_usage(self, pid: int | None = None):
         """Return MemoryUsage system-wide or ProcessResourceUsage for pid."""
         if pid is None:
-            mem = parse_free_btlv(self._run("free -btlv")).get("Mem", {})
+            mem = parse_free_btlv(self.protocol.run_command("free -btlv")).get("Mem", {}, self.state)
             total = int(mem.get("total") or 0)
             used = int(mem.get("used") or 0)
             swap_total = int(mem.get("swap_total") or 0)
@@ -137,7 +130,7 @@ class PSAction:
                 swap_percent=(swap_used / swap_total * 100) if swap_total else 0.0,
             )
 
-        out = self._run(f"ps -o pid=,rss=,vsz=,pcpu= -p {pid}").split()
+        out = self.protocol.run_command(f"ps -o pid=,rss=,vsz=,pcpu= -p {pid}").split(, self.state)
         return ProcessResourceUsage(
             pid=pid,
             cpu_percent=0.0,
@@ -149,7 +142,7 @@ class PSAction:
         """Return CPU usage system-wide or per-process."""
         if pid is None:
             # parse /proc/stat for aggregate CPU times
-            out = self._run("cat /proc/stat")
+            out = self.protocol.run_command("cat /proc/stat", self.state)
             lines = [l for l in out.splitlines() if l.startswith("cpu ")]
             if not lines:
                 return CPUUsage(0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0)
@@ -181,7 +174,7 @@ class PSAction:
             )
         else:
             # per-process use ps to get %CPU
-            out = self._run(f"ps -o pid=,rss=,vsz=,pcpu= -p {int(pid)}")
+            out = self.protocol.run_command(f"ps -o pid=,rss=,vsz=,pcpu= -p {int(pid)}", self.state)
             parts = out.strip().split()
             if not parts:
                 return ProcessResourceUsage(pid=int(pid), cpu_percent=0.0, memory_rss=0, memory_vms=0)
@@ -211,7 +204,7 @@ class PSAction:
     def nice(self, pid: int, priority: int) -> OperationResult:
         """Set a nice ` priority ` for `pid`. Args: pid, priority"""
         try:
-            self._run(f"renice {int(priority)} -p {int(pid)}")
+            self.protocol.run_command(f"renice {int(priority)} -p {int(pid)}", self.state)
             return OperationResult(success=True, message=None)
         except Exception as e:
             return OperationResult(success=False, message=str(e))

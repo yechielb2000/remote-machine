@@ -5,7 +5,6 @@ import shlex
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.errors.error_mapper import ErrorMapper
 
 from linux_parsers.parsers.network.ip import parse_ip_a, parse_ip_r
 from linux_parsers.parsers.network.ping import parse_ping
@@ -43,12 +42,6 @@ class NETAction:
         """
         self.protocol = protocol
         self.state = state
-
-    def _run(self, cmd: str) -> str:
-        """Run a command and raise mapped errors."""
-        result = self.protocol.exec(cmd, self.state)
-        ErrorMapper.raise_if_error(result)
-        return result.stdout
 
     def stat(self) -> NetworkStats:
         """Return high-level network statistics as a dataclass."""
@@ -101,7 +94,7 @@ class NETAction:
 
     def interfaces(self) -> list[str]:
         """Return list of network interface names."""
-        out = self._run("ip a")
+        out = self.protocol.run_command("ip a", self.state)
         parsed = parse_ip_a(out)
 
         return [
@@ -112,7 +105,7 @@ class NETAction:
 
     def interface_info(self, interface: str) -> InterfaceInfo:
         """Return details for `interface` as an InterfaceInfo dataclass."""
-        out = self._run(f"ip -d a show dev {shlex.quote(interface)}")
+        out = self.protocol.run_command(f"ip -d a show dev {shlex.quote(interface)}", self.state)
         parsed = parse_ip_a(out)
 
         iface = next(iter(parsed.values()), {})
@@ -155,16 +148,16 @@ class NETAction:
 
     def ip_add(self, interface: str, address: str) -> None:
         """Add `address` to `interface` (CIDR ok). Args: interface, address"""
-        self._run(f"ip addr add {shlex.quote(address)} dev {shlex.quote(interface)}")
+        self.protocol.run_command(f"ip addr add {shlex.quote(address)} dev {shlex.quote(interface)}", self.state)
 
     def ip_delete(self, interface: str, address: str) -> None:
         """Remove `address` from `interface`. Args: interface, address"""
-        self._run(f"ip addr del {shlex.quote(address)} dev {shlex.quote(interface)}")
+        self.protocol.run_command(f"ip addr del {shlex.quote(address)} dev {shlex.quote(interface)}", self.state)
 
     def ip_list(self, interface: str | None = None) -> IPAddressList:
         """Return a list of IP addresses; optionally filtered by interface."""
         cmd = "ip a" if interface is None else f"ip a show dev {shlex.quote(interface)}"
-        parsed = parse_ip_a(self._run(cmd))
+        parsed = parse_ip_a(self.protocol.run_command(cmd), self.state)
 
         addresses: list[IPAddress] = []
 
@@ -196,7 +189,7 @@ class NETAction:
         """Return routing table entries as a list of dicts."""
         cmd = "ip r"
 
-        parsed = parse_ip_r(self._run(cmd))
+        parsed = parse_ip_r(self.protocol.run_command(cmd), self.state)
 
 
         routes: list[Route] = []
@@ -218,7 +211,7 @@ class NETAction:
         """Return a list of TCP connection dicts."""
         cmd = "ss -tulnap"
 
-        out = self._run(cmd)
+        out = self.protocol.run_command(cmd, self.state)
         parsed = parse_ss_tulnap(out)
 
         conns: list[TCPConnection] = []
@@ -258,7 +251,7 @@ class NETAction:
         """Return listening port info as a list of dicts."""
         cmd = "ss -tulnap"
 
-        out = self._run(cmd)
+        out = self.protocol.run_command(cmd, self.state)
         parsed = parse_ss_tulnap(out)
 
         ports: list[ListeningPort] = []
@@ -291,7 +284,7 @@ class NETAction:
 
     def ping(self, host: str, count: int = 4, timeout: int = 5) -> PingResult:
         """Ping `host` and return the summary as PingResult."""
-        out = self._run(f"ping -c {count} -W {timeout} {host}")
+        out = self.protocol.run_command(f"ping -c {count} -W {timeout} {host}", self.state)
         parsed = parse_ping(out)
 
         stats = parsed.get("statistics", {})
@@ -314,15 +307,15 @@ class NETAction:
 
     def up(self, interface: str) -> None:
         """Bring `interface` up. Args: interface"""
-        self._run(f"ip link set dev {shlex.quote(interface)} up")
+        self.protocol.run_command(f"ip link set dev {shlex.quote(interface)} up", self.state)
 
     def down(self, interface: str) -> None:
         """Bring `interface` down. Args: interface"""
-        self._run(f"ip link set dev {shlex.quote(interface)} down")
+        self.protocol.run_command(f"ip link set dev {shlex.quote(interface)} down", self.state)
 
     def dns_lookup(self, hostname: str) -> DNSResult:
         """Resolve `hostname` and return DNSResult dataclass. Args: hostname"""
-        out = self._run(f"getent hosts {shlex.quote(hostname)}")
+        out = self.protocol.run_command(f"getent hosts {shlex.quote(hostname)}", self.state)
         ipv4: list[str] = []
         ipv6: list[str] = []
         cname: str | None = None
@@ -340,7 +333,7 @@ class NETAction:
 
         if not (ipv4 or ipv6):
             try:
-                dig = self._run(f"dig +short {shlex.quote(hostname)}")
+                dig = self.protocol.run_command(f"dig +short {shlex.quote(hostname)}", self.state)
                 for line in dig.splitlines():
                     ip = line.strip()
                     if ip:
@@ -358,24 +351,24 @@ class NETAction:
         cmd = f"ip route add {shlex.quote(destination)} via {shlex.quote(gateway)}"
         if interface:
             cmd += f" dev {shlex.quote(interface)}"
-        self._run(cmd)
+        self.protocol.run_command(cmd, self.state)
 
     def route_delete(self, destination: str) -> None:
         """Remove route to `destination`. Args: destination"""
-        self._run(f"ip route del {shlex.quote(destination)}")
+        self.protocol.run_command(f"ip route del {shlex.quote(destination)}", self.state)
 
     def firewall_status(self) -> FirewallStatus:
         """Return firewall status as a FirewallStatus dataclass; tries nftables, ufw, iptables."""
         # try nftables first
         try:
-            out = self._run("nft list ruleset")
+            out = self.protocol.run_command("nft list ruleset", self.state)
             if out.strip():
                 return FirewallStatus(backend="nft", status="active", raw=out)
         except Exception:
             pass
         # try ufw
         try:
-            out = self._run("ufw status")
+            out = self.protocol.run_command("ufw status", self.state)
             if "active" in out.lower():
                 return FirewallStatus(backend="ufw", status="active", raw=out)
             return FirewallStatus(backend="ufw", status="inactive", raw=out)
@@ -383,7 +376,7 @@ class NETAction:
             pass
         # fallback to iptables
         try:
-            out = self._run("iptables -L")
+            out = self.protocol.run_command("iptables -L", self.state)
             return FirewallStatus(backend="iptables", status="unknown", raw=out)
         except Exception:
             pass
@@ -391,7 +384,7 @@ class NETAction:
 
     def bandwidth(self, interface: str | None = None) -> BandwidthList:
         """Return bandwidth (bytes) RX/TX for all interfaces or a single `interface` using /proc/net/dev."""
-        out = self._run("cat /proc/net/dev")
+        out = self.protocol.run_command("cat /proc/net/dev", self.state)
         items: list[BandwidthInfo] = []
         for line in out.splitlines():
             if ":" not in line:

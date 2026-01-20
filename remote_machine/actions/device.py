@@ -5,7 +5,6 @@ import json
 from typing import List
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.errors.error_mapper import ErrorMapper
 
 from remote_machine.models.device_types import (
     BlockDevice,
@@ -36,19 +35,13 @@ class DeviceAction:
         self.protocol = protocol
         self.state = state
 
-    def _run(self, cmd: str) -> str:
-        """Run a command and raise mapped errors."""
-        result = self.protocol.exec(cmd, self.state)
-        ErrorMapper.raise_if_error(result)
-        return result.stdout
-
     def list(self) -> List[DeviceInfo]:
         """Return list of device info."""
         devices = []
 
         # Get basic device list from /sys/devices
         try:
-            output = self._run("find /sys/devices -name 'modalias' 2>/dev/null | head -20")
+            output = self.protocol.run_command("find /sys/devices -name 'modalias' 2>/dev/null | head -20", self.state)
             for line in output.splitlines():
                 if line.strip():
                     device_path = line.replace("/modalias", "")
@@ -72,7 +65,7 @@ class DeviceAction:
         """Return list of block device info as BlockDevice dataclasses."""
         try:
             # prefer lsblk JSON output
-            out = self._run("lsblk -J -o NAME,TYPE,SIZE,MOUNTPOINT,RO,FSTYPE,UUID,LABEL,MODEL,SERIAL")
+            out = self.protocol.run_command("lsblk -J -o NAME,TYPE,SIZE,MOUNTPOINT,RO,FSTYPE,UUID,LABEL,MODEL,SERIAL", self.state)
             j = json.loads(out)
             devices: list[BlockDevice] = []
 
@@ -100,7 +93,7 @@ class DeviceAction:
             return devices
         except Exception:
             # fallback to /proc/partitions (handle variable headers)
-            out = self._run("cat /proc/partitions")
+            out = self.protocol.run_command("cat /proc/partitions", self.state)
             devices: list[BlockDevice] = []
             for line in out.splitlines():
                 if not line.strip() or line.strip().lower().startswith("major"):
@@ -124,7 +117,7 @@ class DeviceAction:
 
             # attempt to fetch block device info via lsblk
             try:
-                out = self._run(f"lsblk -J -o NAME,TYPE,SIZE,RO,FSTYPE,UUID,LABEL,MODEL,SERIAL {shlex.quote(device_path)}")
+                out = self.protocol.run_command(f"lsblk -J -o NAME,TYPE,SIZE,RO,FSTYPE,UUID,LABEL,MODEL,SERIAL {shlex.quote(device_path)}", self.state)
                 j = json.loads(out)
                 # find the device
                 if j.get("blockdevices"):
@@ -168,7 +161,7 @@ class DeviceAction:
         if fstype:
             cmd += f" -t {fstype}"
         cmd += f" {shlex.quote(device)} {shlex.quote(path)}"
-        self._run(cmd)
+        self.protocol.run_command(cmd, self.state)
 
     def unmount(self, path: str, force: bool = False) -> None:
         """Unmount filesystem at `path` (force if requested)."""
@@ -176,11 +169,11 @@ class DeviceAction:
         if force:
             cmd += " -f"
         cmd += f" {shlex.quote(path)}"
-        self._run(cmd)
+        self.protocol.run_command(cmd, self.state)
 
     def mounted(self) -> MountedList:
         """Return list of mounted filesystem info as MountedList dataclass."""
-        parsed = parse_mount(self._run("cat /proc/mounts"))
+        parsed = parse_mount(self.protocol.run_command("cat /proc/mounts"), self.state)
 
         mount_points: list[MountPoint] = [
             MountPoint(
@@ -208,7 +201,7 @@ class DeviceAction:
         cmd += f" {shlex.quote(device)}"
 
         try:
-            output = self._run(cmd)
+            output = self.protocol.run_command(cmd, self.state)
             status = "clean" if "clean" in output.lower() else "unknown"
             return FSCKResult(device=device, status=status, errors_found=0, errors_fixed=0, inodes_checked=0, blocks_checked=0, fragments=0)
         except Exception as e:
@@ -216,13 +209,13 @@ class DeviceAction:
 
     def mkfs(self, device: str, fstype: str) -> None:
         """Create filesystem `fstype` on `device`. Args: device, fstype"""
-        self._run(f"mkfs.{fstype} {shlex.quote(device)}")
+        self.protocol.run_command(f"mkfs.{fstype} {shlex.quote(device)}", self.state)
         
     def temperature(self, device: str | None = None) -> TemperatureInfo | dict:
         """Return temperature info for `device` or a generic structure."""
         try:
             if device:
-                output = self._run(f"hddtemp {shlex.quote(device)}")
+                output = self.protocol.run_command(f"hddtemp {shlex.quote(device)}", self.state)
                 if ":" in output:
                     parts = output.split(":")
                     if len(parts) >= 3:
@@ -234,7 +227,7 @@ class DeviceAction:
                         f = c * 9.0 / 5.0 + 32.0
                         return TemperatureInfo(device=device, celsius=c, fahrenheit=f, high_threshold=None, critical_threshold=None, status="ok")
             else:
-                output = self._run("sensors")
+                output = self.protocol.run_command("sensors", self.state)
                 # best-effort: return first numeric temperature found
                 for line in output.splitlines():
                     if "+" in line and "°C" in line:
@@ -255,10 +248,10 @@ class DeviceAction:
         """Return power status for `device` or a generic structure."""
         try:
             if device:
-                output = self._run(f"hdparm -C {shlex.quote(device)}")
+                output = self.protocol.run_command(f"hdparm -C {shlex.quote(device)}", self.state)
                 return PowerStatus(device=device, status=output.strip(), power_consumption=None, power_supply=None)
             else:
-                output = self._run("acpi -a")
+                output = self.protocol.run_command("acpi -a", self.state)
                 return {"output": output, "source": "acpi"}
         except Exception:
             return {"status": "not_available"}
@@ -276,10 +269,10 @@ class DeviceAction:
     def rescan_bus(self, bus: str) -> None:
         """Rescan device `bus` (e.g., 'pci' or 'usb'). Args: bus"""
         if bus.lower() == "pci":
-            self._run("echo 1 > /sys/bus/pci/rescan")
+            self.protocol.run_command("echo 1 > /sys/bus/pci/rescan", self.state)
         elif bus.lower() == "usb":
             # USB bus rescan is more complex
-            self._run("modprobe -r usb-storage && modprobe usb-storage")
+            self.protocol.run_command("modprobe -r usb-storage && modprobe usb-storage", self.state)
         else:
             raise ValueError(f"Unsupported bus type: {bus}")
 
@@ -287,7 +280,7 @@ class DeviceAction:
         """Return firmware version string for `device`. Args: device"""
         try:
             # Try to get firmware info from DMI/BIOS
-            output = self._run("dmidecode -t bios")
+            output = self.protocol.run_command("dmidecode -t bios", self.state)
             return output.strip()
         except Exception:
             return ""
@@ -300,7 +293,7 @@ class DeviceAction:
     def gpio_list(self) -> GPIOInfo:
         """Return list of GPIO pin info as GPIOInfo dataclass."""
         try:
-            output = self._run("ls /sys/class/gpio/")
+            output = self.protocol.run_command("ls /sys/class/gpio/", self.state)
             pins: list[GPIOPin] = []
 
             for line in output.splitlines():
@@ -308,8 +301,8 @@ class DeviceAction:
                     pin_num = line.replace("gpio", "")
                     if pin_num.isdigit():
                         try:
-                            direction = self._run(f"cat /sys/class/gpio/gpio{pin_num}/direction").strip()
-                            value = int(self._run(f"cat /sys/class/gpio/gpio{pin_num}/value").strip())
+                            direction = self.protocol.run_command(f"cat /sys/class/gpio/gpio{pin_num}/direction").strip(, self.state)
+                            value = int(self.protocol.run_command(f"cat /sys/class/gpio/gpio{pin_num}/value").strip(), self.state)
 
                             pins.append(GPIOPin(pin=int(pin_num), value=value, direction=direction, active_low=False, available=True))
                         except Exception:
@@ -322,7 +315,7 @@ class DeviceAction:
     def gpio_read(self, pin: int) -> IDResult:
         """Read the value of GPIO `pin` and return as IDResult (0 or 1). Args: pin"""
         try:
-            output = self._run(f"cat /sys/class/gpio/gpio{int(pin)}/value")
+            output = self.protocol.run_command(f"cat /sys/class/gpio/gpio{int(pin)}/value", self.state)
             return IDResult(key=str(pin), id=int(output.strip()))
         except Exception:
             return IDResult(key=str(pin), id=None)
@@ -338,6 +331,6 @@ class DeviceAction:
             raise ValueError("GPIO value must be 0 or 1")
 
         try:
-            self._run(f"echo {value} > /sys/class/gpio/gpio{pin}/value")
+            self.protocol.run_command(f"echo {value} > /sys/class/gpio/gpio{pin}/value", self.state)
         except Exception as e:
             raise RuntimeError(f"Failed to write GPIO pin {pin}: {e}")

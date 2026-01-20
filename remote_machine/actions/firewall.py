@@ -6,7 +6,6 @@ from typing import List, Optional
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.errors.error_mapper import ErrorMapper
 from remote_machine.models.common_types import OperationResult
 from remote_machine.models.firewall_types import (
     FirewallRule,
@@ -29,12 +28,6 @@ class FirewallAction:
         self.protocol = protocol
         self.state = state
 
-    def _run(self, cmd: str) -> str:
-        """Run a command and raise mapped errors."""
-        result = self.protocol.exec(cmd, self.state)
-        ErrorMapper.raise_if_error(result)
-        return result.stdout
-
     def list_rules(self, chain: Optional[str] = None, table: str = "filter") -> List[FirewallRule]:
         """List firewall rules.
 
@@ -50,7 +43,7 @@ class FirewallAction:
         else:
             cmd = f"sudo iptables -t {table} -L -v -n"
 
-        output = self._run(cmd)
+        output = self.protocol.run_command(cmd, self.state)
         rules = []
 
         lines = output.strip().split("\n")
@@ -97,7 +90,7 @@ class FirewallAction:
 
             # Get default policy
             cmd = f"sudo iptables -t {table} -L {chain_name} | head -1"
-            policy_line = self._run(cmd)
+            policy_line = self.protocol.run_command(cmd, self.state)
             policy = "ACCEPT"  # Default
             if "DROP" in policy_line:
                 policy = "DROP"
@@ -150,7 +143,7 @@ class FirewallAction:
 
         cmd_parts.extend(["-j", action])
 
-        self._run(" ".join(cmd_parts))
+        self.protocol.run_command(" ".join(cmd_parts), self.state)
         return OperationResult(success=True, message=f"Rule added to {chain}")
 
     def delete_rule(
@@ -188,7 +181,7 @@ class FirewallAction:
 
         cmd_parts.extend(["-j", action])
 
-        self._run(" ".join(cmd_parts))
+        self.protocol.run_command(" ".join(cmd_parts), self.state)
         return OperationResult(success=True, message=f"Rule deleted from {chain}")
 
     def delete_rule_by_number(self, chain: str, rule_number: int, table: str = "filter") -> OperationResult:
@@ -203,7 +196,7 @@ class FirewallAction:
             OperationResult indicating success or failure
         """
         cmd = f"sudo iptables -t {table} -D {chain} {rule_number}"
-        self._run(cmd)
+        self.protocol.run_command(cmd, self.state)
         return OperationResult(success=True, message=f"Rule {rule_number} deleted from {chain}")
 
     def open_port(
@@ -262,7 +255,7 @@ class FirewallAction:
             OperationResult indicating success or failure
         """
         cmd = f"sudo iptables -t {table} -P {chain} {policy}"
-        self._run(cmd)
+        self.protocol.run_command(cmd, self.state)
         return OperationResult(success=True, message=f"Default policy for {chain} set to {policy}")
 
     def flush_chain(self, chain: Optional[str] = None, table: str = "filter") -> OperationResult:
@@ -282,7 +275,7 @@ class FirewallAction:
             cmd = f"sudo iptables -t {table} -F"
             msg = "All chains flushed"
 
-        self._run(cmd)
+        self.protocol.run_command(cmd, self.state)
         return OperationResult(success=True, message=msg)
 
     def save_rules(self) -> OperationResult:
@@ -293,12 +286,12 @@ class FirewallAction:
         """
         # Try iptables-save first
         try:
-            self._run("sudo iptables-save | sudo tee /etc/iptables/rules.v4 > /dev/null")
+            self.protocol.run_command("sudo iptables-save | sudo tee /etc/iptables/rules.v4 > /dev/null", self.state)
             return OperationResult(success=True, message="Rules saved to /etc/iptables/rules.v4")
         except:
             # Fallback to other methods
             try:
-                self._run("sudo sh -c 'iptables-save > /etc/iptables.rules'")
+                self.protocol.run_command("sudo sh -c 'iptables-save > /etc/iptables.rules'", self.state)
                 return OperationResult(success=True, message="Rules saved to /etc/iptables.rules")
             except:
                 return OperationResult(
@@ -316,7 +309,7 @@ class FirewallAction:
             OperationResult indicating success or failure
         """
         cmd = f"sudo iptables-restore < {shlex.quote(rules_file)}"
-        self._run(cmd)
+        self.protocol.run_command(cmd, self.state)
         return OperationResult(success=True, message=f"Rules restored from {rules_file}")
 
     def get_status(self) -> FirewallStatus:
@@ -327,7 +320,7 @@ class FirewallAction:
         """
         # Check if firewall is enabled
         try:
-            self._run("sudo iptables -L -n > /dev/null 2>&1")
+            self.protocol.run_command("sudo iptables -L -n > /dev/null 2>&1", self.state)
             enabled = True
         except:
             enabled = False
@@ -369,7 +362,7 @@ class FirewallAction:
         Returns:
             OperationResult indicating success or failure
         """
-        self._run("sudo ufw enable")
+        self.protocol.run_command("sudo ufw enable", self.state)
         return OperationResult(success=True, message="UFW enabled")
 
     def disable_ufw(self) -> OperationResult:
@@ -378,7 +371,7 @@ class FirewallAction:
         Returns:
             OperationResult indicating success or failure
         """
-        self._run("sudo ufw disable")
+        self.protocol.run_command("sudo ufw disable", self.state)
         return OperationResult(success=True, message="UFW disabled")
 
     def ufw_allow_port(self, port: int, protocol: str = "tcp") -> OperationResult:
@@ -392,7 +385,7 @@ class FirewallAction:
             OperationResult indicating success or failure
         """
         cmd = f"sudo ufw allow {port}/{protocol}"
-        self._run(cmd)
+        self.protocol.run_command(cmd, self.state)
         return OperationResult(success=True, message=f"Port {port}/{protocol} allowed via UFW")
 
     def ufw_deny_port(self, port: int, protocol: str = "tcp") -> OperationResult:
@@ -406,7 +399,7 @@ class FirewallAction:
             OperationResult indicating success or failure
         """
         cmd = f"sudo ufw deny {port}/{protocol}"
-        self._run(cmd)
+        self.protocol.run_command(cmd, self.state)
         return OperationResult(success=True, message=f"Port {port}/{protocol} denied via UFW")
 
     def ufw_status(self) -> str:
@@ -415,4 +408,4 @@ class FirewallAction:
         Returns:
             UFW status output
         """
-        return self._run("sudo ufw status verbose")
+        return self.protocol.run_command("sudo ufw status verbose", self.state)

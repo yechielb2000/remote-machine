@@ -3,6 +3,7 @@ import paramiko
 from typing import Any
 
 from remote_machine.errors.exceptions import ConnectionError
+from remote_machine.errors.error_mapper import ErrorMapper
 from remote_machine.models.command_result import CommandResult
 from remote_machine.models.remote_state import RemoteState
 
@@ -116,3 +117,20 @@ class SSHProtocol:
         parts.append(command)
 
         return " && ".join(parts)
+
+    def run_command(self, command: str, state: RemoteState) -> str:
+        """Execute a command and return stdout, handling errors.
+
+        Args:
+            command: Command to execute
+            state: Remote execution state (contains cwd, env)
+
+        Returns:
+            stdout as string
+
+        Raises:
+            Appropriate exception if command fails (based on ErrorMapper)
+        """
+        result = self.exec(command, state)
+        ErrorMapper.raise_if_error(result)
+        return result.stdout
