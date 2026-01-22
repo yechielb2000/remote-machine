@@ -6,7 +6,6 @@ from typing import List, Optional
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.errors.error_mapper import ErrorMapper
 from remote_machine.models.common_types import OperationResult
 from remote_machine.models.cron_types import (
     CronJob,
@@ -28,12 +27,6 @@ class CronAction:
         """
         self.protocol = protocol
         self.state = state
-
-    def _run(self, cmd: str) -> str:
-        """Run a command and raise mapped errors."""
-        result = self.protocol.exec(cmd, self.state)
-        ErrorMapper.raise_if_error(result)
-        return result.stdout
 
     def _parse_cron_line(self, line: str) -> Optional[CronJob]:
         """Parse a cron line into CronJob object.
@@ -84,7 +77,7 @@ class CronAction:
         else:
             cmd = "crontab -l"
 
-        output = self._run(cmd)
+        output = self.protocol.run_command(cmd, self.state)
 
         jobs = []
         for line in output.strip().split("\n"):
@@ -112,7 +105,7 @@ class CronAction:
         # Read /etc/cron.d and subdirs
         for cron_dir in cron_dirs:
             try:
-                output = self._run(f"ls -1 {cron_dir} 2>/dev/null")
+                output = self.protocol.run_command(f"ls -1 {cron_dir} 2>/dev/null", self.state)
                 for filename in output.strip().split("\n"):
                     if filename:
                         file_path = f"{cron_dir}/{filename}"
@@ -123,7 +116,7 @@ class CronAction:
         # Add static cron files
         for cron_file in cron_files:
             try:
-                self._run(f"test -f {cron_file}")
+                self.protocol.run_command(f"test -f {cron_file}", self.state)
                 all_files.append(cron_file)
             except:
                 continue
@@ -131,7 +124,7 @@ class CronAction:
         system_files = []
         for file_path in all_files:
             try:
-                output = self._run(f"cat {shlex.quote(file_path)}")
+                output = self.protocol.run_command(f"cat {shlex.quote(file_path)}", self.state)
                 jobs = []
                 for line in output.strip().split("\n"):
                     job = self._parse_cron_line(line)
@@ -167,12 +160,12 @@ class CronAction:
         # Get current crontab
         if username:
             try:
-                current = self._run(f"sudo crontab -u {shlex.quote(username)} -l")
+                current = self.protocol.run_command(f"sudo crontab -u {shlex.quote(username)} -l", self.state)
             except:
                 current = ""
         else:
             try:
-                current = self._run("crontab -l")
+                current = self.protocol.run_command("crontab -l", self.state)
             except:
                 current = ""
 
@@ -188,14 +181,14 @@ class CronAction:
         crontab_content = "\n".join(lines) + "\n"
         temp_file = "/tmp/crontab_temp"
 
-        self._run(f"cat > {temp_file} << 'EOF'\n{crontab_content}EOF")
+        self.protocol.run_command(f"cat > {temp_file} << 'EOF'\n{crontab_content}EOF", self.state)
 
         if username:
-            self._run(f"sudo crontab -u {shlex.quote(username)} {temp_file}")
+            self.protocol.run_command(f"sudo crontab -u {shlex.quote(username)} {temp_file}", self.state)
         else:
-            self._run(f"crontab {temp_file}")
+            self.protocol.run_command(f"crontab {temp_file}", self.state)
 
-        self._run(f"rm {temp_file}")
+        self.protocol.run_command(f"rm {temp_file}", self.state)
 
         return OperationResult(success=True, message=f"Cron job added: {command}")
 
@@ -215,9 +208,9 @@ class CronAction:
         """
         # Get current crontab
         if username:
-            current = self._run(f"sudo crontab -u {shlex.quote(username)} -l")
+            current = self.protocol.run_command(f"sudo crontab -u {shlex.quote(username)} -l", self.state)
         else:
-            current = self._run("crontab -l")
+            current = self.protocol.run_command("crontab -l", self.state)
 
         # Remove matching job
         lines = [
@@ -229,14 +222,14 @@ class CronAction:
         crontab_content = "\n".join(lines) + "\n"
         temp_file = "/tmp/crontab_temp"
 
-        self._run(f"cat > {temp_file} << 'EOF'\n{crontab_content}EOF")
+        self.protocol.run_command(f"cat > {temp_file} << 'EOF'\n{crontab_content}EOF", self.state)
 
         if username:
-            self._run(f"sudo crontab -u {shlex.quote(username)} {temp_file}")
+            self.protocol.run_command(f"sudo crontab -u {shlex.quote(username)} {temp_file}", self.state)
         else:
-            self._run(f"crontab {temp_file}")
+            self.protocol.run_command(f"crontab {temp_file}", self.state)
 
-        self._run(f"rm {temp_file}")
+        self.protocol.run_command(f"rm {temp_file}", self.state)
 
         return OperationResult(success=True, message=f"Cron job removed: {command}")
 
@@ -250,9 +243,9 @@ class CronAction:
             OperationResult indicating success or failure
         """
         if username:
-            self._run(f"sudo crontab -u {shlex.quote(username)} -r")
+            self.protocol.run_command(f"sudo crontab -u {shlex.quote(username)} -r", self.state)
         else:
-            self._run("crontab -r")
+            self.protocol.run_command("crontab -r", self.state)
 
         return OperationResult(success=True, message="All cron jobs removed")
 
@@ -370,7 +363,7 @@ class CronAction:
         else:
             cmd = "grep CRON /var/log/syslog 2>/dev/null | tail -50 || true"
 
-        return self._run(cmd)
+        return self.protocol.run_command(cmd, self.state)
 
     def is_cron_running(self) -> bool:
         """Check if cron daemon is running.
@@ -379,7 +372,7 @@ class CronAction:
             True if cron is running, False otherwise
         """
         try:
-            self._run("systemctl is-active --quiet cron || systemctl is-active --quiet crond")
+            self.protocol.run_command("systemctl is-active --quiet cron || systemctl is-active --quiet crond", self.state)
             return True
         except:
             return False
@@ -392,10 +385,10 @@ class CronAction:
         """
         # Try both cron and crond names (different distros)
         try:
-            self._run("sudo systemctl enable cron")
+            self.protocol.run_command("sudo systemctl enable cron", self.state)
         except:
             try:
-                self._run("sudo systemctl enable crond")
+                self.protocol.run_command("sudo systemctl enable crond", self.state)
             except:
                 pass
 
@@ -408,10 +401,10 @@ class CronAction:
             OperationResult indicating success or failure
         """
         try:
-            self._run("sudo systemctl start cron")
+            self.protocol.run_command("sudo systemctl start cron", self.state)
         except:
             try:
-                self._run("sudo systemctl start crond")
+                self.protocol.run_command("sudo systemctl start crond", self.state)
             except:
                 pass
 
@@ -424,10 +417,10 @@ class CronAction:
             OperationResult indicating success or failure
         """
         try:
-            self._run("sudo systemctl stop cron")
+            self.protocol.run_command("sudo systemctl stop cron", self.state)
         except:
             try:
-                self._run("sudo systemctl stop crond")
+                self.protocol.run_command("sudo systemctl stop crond", self.state)
             except:
                 pass
 
@@ -440,10 +433,10 @@ class CronAction:
             OperationResult indicating success or failure
         """
         try:
-            self._run("sudo systemctl restart cron")
+            self.protocol.run_command("sudo systemctl restart cron", self.state)
         except:
             try:
-                self._run("sudo systemctl restart crond")
+                self.protocol.run_command("sudo systemctl restart crond", self.state)
             except:
                 pass
 

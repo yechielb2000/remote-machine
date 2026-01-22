@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional, List
 
 from remote_machine import actions
 from remote_machine.errors import ProtocolNotAvailable, PermissionDenied
+from remote_machine.models.capabilities import Capabilities
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
 

@@ -5,7 +5,6 @@ import shlex
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.errors.error_mapper import ErrorMapper
 from remote_machine.models.common_types import BoolResult, OperationResult, IDResult
 from remote_machine.models.service_types import (
     ServiceStatus,
@@ -62,7 +61,7 @@ class ServiceAction:
 
     def status(self, service: str) -> ServiceStatus:
         """Return status for `service` as ServiceStatus dataclass."""
-        out = self._run(f"systemctl show {shlex.quote(service)} --no-page -p ActiveState -p SubState -p LoadState -p MainPID -p MemoryCurrent -p CPUUsageNSec -p ExecMainStartTimestamp")
+        out = self.protocol.run_command(f"systemctl show {shlex.quote(service)} --no-page -p ActiveState -p SubState -p LoadState -p MainPID -p MemoryCurrent -p CPUUsageNSec -p ExecMainStartTimestamp", self.state)
         data: dict = {}
         for line in out.splitlines():
             if "=" in line:
@@ -107,39 +106,39 @@ class ServiceAction:
 
     def start(self, service: str) -> ServiceStatus:
         """Start `service` and return status."""
-        self._run(f"systemctl start {shlex.quote(service)}")
+        self.protocol.run_command(f"systemctl start {shlex.quote(service)}", self.state)
         return self.status(service)
 
     def stop(self, service: str) -> ServiceStatus:
         """Stop `service` and return status."""
-        self._run(f"systemctl stop {shlex.quote(service)}")
+        self.protocol.run_command(f"systemctl stop {shlex.quote(service)}", self.state)
         return self.status(service)
 
     def restart(self, service: str) -> ServiceStatus:
         """Restart `service` and return status."""
-        self._run(f"systemctl restart {shlex.quote(service)}")
+        self.protocol.run_command(f"systemctl restart {shlex.quote(service)}", self.state)
         return self.status(service)
 
     def reload(self, service: str) -> ServiceStatus:
         """Reload `service` configuration and return status."""
-        self._run(f"systemctl reload {shlex.quote(service)}")
+        self.protocol.run_command(f"systemctl reload {shlex.quote(service)}", self.state)
         return self.status(service)
 
     def enable(self, service: str) -> ServiceStatus:
         """Enable `service` at boot and return status."""
-        self._run(f"systemctl enable {shlex.quote(service)}")
+        self.protocol.run_command(f"systemctl enable {shlex.quote(service)}", self.state)
         return self.status(service)
 
     def disable(self, service: str) -> ServiceStatus:
         """Disable `service` at boot and return status."""
-        self._run(f"systemctl disable {shlex.quote(service)}")
+        self.protocol.run_command(f"systemctl disable {shlex.quote(service)}", self.state)
         return self.status(service)
 
     def logs(self, service: str, lines: int = 100, follow: bool = False) -> ServiceLogList:
         """Return last `lines` of `service` logs as ServiceLogList dataclass; `follow` is not supported."""
         if follow:
             raise NotImplementedError("Follow streaming logs is not supported in this API")
-        out = self._run(f"journalctl -u {shlex.quote(service)} -n {int(lines)} --no-pager --output=short")
+        out = self.protocol.run_command(f"journalctl -u {shlex.quote(service)} -n {int(lines)} --no-pager --output=short", self.state)
         logs: list[ServiceLog] = []
         for line in out.splitlines():
             # Very lax parsing: try to split timestamp and message
@@ -160,7 +159,7 @@ class ServiceAction:
 
     def get_config(self, service: str) -> ServiceConfig:
         """Return service configuration content as ServiceConfig dataclass."""
-        out = self._run(f"systemctl cat {shlex.quote(service)}")
+        out = self.protocol.run_command(f"systemctl cat {shlex.quote(service)}", self.state)
         path = f"/etc/systemd/system/{service}.service"
         valid = True
         return ServiceConfig(name=service, path=path, content=out, valid=valid)
@@ -170,8 +169,8 @@ class ServiceAction:
         path = f"/etc/systemd/system/{service}.service"
         escaped = content.replace("'", "'\"'\"'")
         try:
-            self._run(f"printf '%s' '{escaped}' > {shlex.quote(path)}")
-            self._run("systemctl daemon-reload")
+            self.protocol.run_command(f"printf '%s' '{escaped}' > {shlex.quote(path)}", self.state)
+            self.protocol.run_command("systemctl daemon-reload", self.state)
             return OperationResult(success=True, message=None)
         except Exception as e:
             return OperationResult(success=False, message=str(e))
@@ -181,7 +180,7 @@ class ServiceAction:
         # systemd provides 'systemd-analyze verify' for unit files
         path = f"/etc/systemd/system/{service}.service"
         try:
-            self._run(f"systemd-analyze verify {shlex.quote(path)}")
+            self.protocol.run_command(f"systemd-analyze verify {shlex.quote(path)}", self.state)
             return OperationResult(success=True, message=None)
         except Exception as e:
             return OperationResult(success=False, message=str(e))
@@ -195,7 +194,7 @@ class ServiceAction:
         """Attempt to discover listening port for `service` and return as IDResult."""
         # try ss to find process owning sockets and extract port; best-effort
         try:
-            out = self._run("ss -tulnp")
+            out = self.protocol.run_command("ss -tulnp", self.state)
             for line in out.splitlines():
                 if service in line or f"/{service}" in line:
                     parts = line.split()
@@ -214,17 +213,17 @@ class ServiceAction:
 
     def mask(self, service: str) -> ServiceStatus:
         """Mask `service` to prevent it starting and return status."""
-        self._run(f"systemctl mask {shlex.quote(service)}")
+        self.protocol.run_command(f"systemctl mask {shlex.quote(service)}", self.state)
         return self.status(service)
 
     def unmask(self, service: str) -> ServiceStatus:
         """Unmask `service` and return status."""
-        self._run(f"systemctl unmask {shlex.quote(service)}")
+        self.protocol.run_command(f"systemctl unmask {shlex.quote(service)}", self.state)
         return self.status(service)
 
     def dependencies(self, service: str) -> ServiceDependencies:
         """Get service dependencies (requires/systemd) and return ServiceDependencies."""
-        out = self._run(f"systemctl list-dependencies {shlex.quote(service)} --no-pager")
+        out = self.protocol.run_command(f"systemctl list-dependencies {shlex.quote(service)} --no-pager", self.state)
         dependencies: list[ServiceDependency] = []
         dependents: list[str] = []
         for line in out.splitlines():

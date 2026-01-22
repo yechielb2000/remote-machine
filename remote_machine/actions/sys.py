@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.errors.error_mapper import ErrorMapper
 from remote_machine.models.system_types import (
     UnameInfo,
     UptimeInfo,
@@ -59,11 +58,11 @@ class SYSAction:
 
     def uname(self) -> UnameInfo:
         """Get system name and information as a dataclass."""
-        sysname = self._run("uname -s").strip()
-        nodename = self._run("uname -n").strip()
-        release = self._run("uname -r").strip()
-        version = self._run("uname -v").strip()
-        machine = self._run("uname -m").strip()
+        sysname = self.protocol.run_command("uname -s").strip(, self.state)
+        nodename = self.protocol.run_command("uname -n").strip(, self.state)
+        release = self.protocol.run_command("uname -r").strip(, self.state)
+        version = self.protocol.run_command("uname -v").strip(, self.state)
+        machine = self.protocol.run_command("uname -m").strip(, self.state)
 
         return UnameInfo(
             sysname=sysname,
@@ -75,7 +74,7 @@ class SYSAction:
 
     def uptime(self) -> UptimeInfo:
         """Get system uptime using /proc/uptime parser."""
-        out = self._run("cat /proc/uptime").strip()
+        out = self.protocol.run_command("cat /proc/uptime").strip(, self.state)
 
         parsed = parse_proc_uptime_file(out)
 
@@ -98,19 +97,19 @@ class SYSAction:
 
     def hostname(self) -> str:
         """Get system hostname."""
-        return self._run("hostname").strip()
+        return self.protocol.run_command("hostname").strip(, self.state)
 
     def set_hostname(self, hostname: str) -> None:
         """Set system hostname."""
-        self._run(f"hostname {hostname}")
+        self.protocol.run_command(f"hostname {hostname}", self.state)
 
     def kernel_version(self) -> str:
         """Get kernel version string."""
-        return self._run("uname -r").strip()
+        return self.protocol.run_command("uname -r").strip(, self.state)
 
     def os_release(self) -> OSRelease:
         """Parse /etc/os-release."""
-        out = self._run("cat /etc/os-release")
+        out = self.protocol.run_command("cat /etc/os-release", self.state)
         data = parse_etc_os_release_file(out)
 
         return OSRelease(
@@ -127,7 +126,7 @@ class SYSAction:
 
     def memory_info(self) -> MemoryInfo:
         """Parse memory info from `free -btlv`."""
-        out = self._run("free -btlv")
+        out = self.protocol.run_command("free -btlv", self.state)
         data = parse_free_btlv(out)
 
         mem = data.get("Mem", {})
@@ -173,7 +172,7 @@ class SYSAction:
 
     def cpu_info(self) -> List[CPUInfo]:
         """Parse /proc/cpuinfo and return per-CPU info."""
-        processors = parse_proc_cpuinfo_file(self._run("cat /proc/cpuinfo"))
+        processors = parse_proc_cpuinfo_file(self.protocol.run_command("cat /proc/cpuinfo"), self.state)
 
         cpu_infos: List[CPUInfo] = []
 
@@ -201,11 +200,11 @@ class SYSAction:
 
     def cpu_count(self) -> int:
         """Return the number of logical CPU threads."""
-        out = self._run("cat /proc/cpuinfo")
+        out = self.protocol.run_command("cat /proc/cpuinfo", self.state)
         return out.count("processor\t:") or out.count("processor :") or out.count("processor")
 
     def load_average(self) -> LoadAverage:
-        out = self._run("cat /proc/loadavg").strip()
+        out = self.protocol.run_command("cat /proc/loadavg").strip(, self.state)
 
         parts = out.split()
         running_total = parts[3] if len(parts) > 3 else "0/0"
@@ -222,7 +221,7 @@ class SYSAction:
     def timezone(self) -> str:
         """Get system timezone via timedatectl or /etc/localtime link (best-effort)."""
         try:
-            out = self._run("timedatectl show -p Timezone --value").strip()
+            out = self.protocol.run_command("timedatectl show -p Timezone --value").strip(, self.state)
             if out:
                 return out
         except Exception:
@@ -230,7 +229,7 @@ class SYSAction:
 
         # fallback to readlink /etc/localtime
         try:
-            out = self._run("readlink -f /etc/localtime").strip()
+            out = self.protocol.run_command("readlink -f /etc/localtime").strip(, self.state)
             parts = out.split("zoneinfo/")
             if len(parts) == 2:
                 return parts[1]
@@ -242,21 +241,21 @@ class SYSAction:
     def reboot(self, delay: int = 0) -> None:
         """Reboot the system (uses shutdown command with +delay)."""
         cmd = "reboot" if delay == 0 else f"shutdown -r +{int(delay // 60)}"
-        self._run(cmd)
+        self.protocol.run_command(cmd, self.state)
 
     def shutdown(self, delay: int = 0) -> None:
         """Shutdown the system (uses shutdown command with +delay)."""
         cmd = "shutdown -h now" if delay == 0 else f"shutdown -h +{int(delay // 60)}"
-        self._run(cmd)
+        self.protocol.run_command(cmd, self.state)
 
     def dmesg(self, lines: int = 100) -> str:
         """Return the last `lines` of kernel messages (best-effort)."""
-        out = self._run(f"dmesg --color=never | tail -n {int(lines)}")
+        out = self.protocol.run_command(f"dmesg --color=never | tail -n {int(lines)}", self.state)
         return out
 
     def logged_in_users(self) -> List[UserInfo]:
         """Get currently logged in users using `who -a`."""
-        parsed = parse_who_a(self._run("who -a"))
+        parsed = parse_who_a(self.protocol.run_command("who -a"), self.state)
 
         users: List[UserInfo] = []
 
@@ -284,7 +283,7 @@ class SYSAction:
     def last_login(self, username: str | None = None) -> List:
         """Return last login history via `last` (not fully parsed)."""
         cmd = "last -w" + (f" {username}" if username else "")
-        out = self._run(cmd)
+        out = self.protocol.run_command(cmd, self.state)
         # returning raw lines for now
         lines = [l for l in out.splitlines() if l and not l.startswith("wtmp")] 
         return lines

@@ -7,7 +7,6 @@ from typing import List, Optional
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.errors.error_mapper import ErrorMapper
 from remote_machine.models.common_types import OperationResult
 from remote_machine.models.git_types import (
     Commit,
@@ -31,12 +30,6 @@ class GitAction:
         self.protocol = protocol
         self.state = state
 
-    def _run(self, cmd: str) -> str:
-        """Run a command and raise mapped errors."""
-        result = self.protocol.exec(cmd, self.state)
-        ErrorMapper.raise_if_error(result)
-        return result.stdout
-
     def status(self, repo_path: str = ".") -> RepositoryStatus:
         """Get Git repository status.
 
@@ -47,38 +40,38 @@ class GitAction:
             RepositoryStatus object
         """
         # Get current branch
-        branch_output = self._run(
+        branch_output = self.protocol.run_command(
             f"git -C {shlex.quote(repo_path)} rev-parse --abbrev-ref HEAD"
         )
         branch = branch_output.strip()
 
         # Get current commit hash
-        commit_output = self._run(
+        commit_output = self.protocol.run_command(
             f"git -C {shlex.quote(repo_path)} rev-parse HEAD"
         )
         commit_hash = commit_output.strip()
 
         # Get modified files count
-        modified_output = self._run(
+        modified_output = self.protocol.run_command(
             f"git -C {shlex.quote(repo_path)} diff --name-only"
         )
         modified_count = len([f for f in modified_output.strip().split("\n") if f])
 
         # Get untracked files count
-        untracked_output = self._run(
+        untracked_output = self.protocol.run_command(
             f"git -C {shlex.quote(repo_path)} ls-files --others --exclude-standard"
         )
         untracked_count = len([f for f in untracked_output.strip().split("\n") if f])
 
         # Get staged files count
-        staged_output = self._run(
+        staged_output = self.protocol.run_command(
             f"git -C {shlex.quote(repo_path)} diff --cached --name-only"
         )
         staged_count = len([f for f in staged_output.strip().split("\n") if f])
 
         # Get ahead/behind info
         try:
-            ahead_behind = self._run(
+            ahead_behind = self.protocol.run_command(
                 f"git -C {shlex.quote(repo_path)} rev-list --left-right --count @{{u}}...HEAD"
             )
             parts = ahead_behind.strip().split()
@@ -113,7 +106,7 @@ class GitAction:
         """
         format_str = "%H%n%h%n%an%n%ae%n%ai%n%s%n---"
         cmd = f"git -C {shlex.quote(repo_path)} log -n {limit} --format='{format_str}'"
-        output = self._run(cmd)
+        output = self.protocol.run_command(cmd, self.state)
 
         commits = []
         entries = output.strip().split("---")
@@ -150,13 +143,13 @@ class GitAction:
             List of Branch objects
         """
         # Get current branch
-        current_branch_output = self._run(
+        current_branch_output = self.protocol.run_command(
             f"git -C {shlex.quote(repo_path)} rev-parse --abbrev-ref HEAD"
         )
         current_branch = current_branch_output.strip()
 
         # Get all branches
-        output = self._run(f"git -C {shlex.quote(repo_path)} branch -a")
+        output = self.protocol.run_command(f"git -C {shlex.quote(repo_path)} branch -a", self.state)
 
         branches = []
         for line in output.strip().split("\n"):
@@ -190,7 +183,7 @@ class GitAction:
         Returns:
             List of RemoteInfo objects
         """
-        output = self._run(f"git -C {shlex.quote(repo_path)} remote -v")
+        output = self.protocol.run_command(f"git -C {shlex.quote(repo_path)} remote -v", self.state)
 
         remotes = {}
         for line in output.strip().split("\n"):
@@ -253,7 +246,7 @@ class GitAction:
 
         cmd_parts.extend([shlex.quote(repository_url), shlex.quote(target_path)])
 
-        self._run(" ".join(cmd_parts))
+        self.protocol.run_command(" ".join(cmd_parts), self.state)
         return OperationResult(success=True, message=f"Repository cloned to {target_path}")
 
     def commit(
@@ -276,7 +269,7 @@ class GitAction:
 
         cmd_parts.extend(["-m", shlex.quote(message)])
 
-        output = self._run(" ".join(cmd_parts))
+        output = self.protocol.run_command(" ".join(cmd_parts), self.state)
         return OperationResult(success=True, message=output.strip())
 
     def add(self, repo_path: str = ".", paths: Optional[List[str]] = None) -> OperationResult:
@@ -297,7 +290,7 @@ class GitAction:
         else:
             cmd_parts.append(".")
 
-        self._run(" ".join(cmd_parts))
+        self.protocol.run_command(" ".join(cmd_parts), self.state)
         return OperationResult(success=True, message="Changes staged")
 
     def push(
@@ -328,7 +321,7 @@ class GitAction:
         if branch:
             cmd_parts.append(branch)
 
-        output = self._run(" ".join(cmd_parts))
+        output = self.protocol.run_command(" ".join(cmd_parts), self.state)
         return OperationResult(success=True, message=output.strip())
 
     def pull(
@@ -349,7 +342,7 @@ class GitAction:
         if branch:
             cmd_parts.append(branch)
 
-        output = self._run(" ".join(cmd_parts))
+        output = self.protocol.run_command(" ".join(cmd_parts), self.state)
         return OperationResult(success=True, message=output.strip())
 
     def checkout(self, repo_path: str = ".", ref: str = "") -> OperationResult:
@@ -362,7 +355,7 @@ class GitAction:
         Returns:
             OperationResult indicating success or failure
         """
-        self._run(f"git -C {shlex.quote(repo_path)} checkout {shlex.quote(ref)}")
+        self.protocol.run_command(f"git -C {shlex.quote(repo_path)} checkout {shlex.quote(ref)}", self.state)
         return OperationResult(success=True, message=f"Checked out {ref}")
 
     def create_branch(self, repo_path: str = ".", branch_name: str = "") -> OperationResult:
@@ -375,7 +368,7 @@ class GitAction:
         Returns:
             OperationResult indicating success or failure
         """
-        self._run(f"git -C {shlex.quote(repo_path)} branch {shlex.quote(branch_name)}")
+        self.protocol.run_command(f"git -C {shlex.quote(repo_path)} branch {shlex.quote(branch_name)}", self.state)
         return OperationResult(success=True, message=f"Branch {branch_name} created")
 
     def delete_branch(self, repo_path: str = ".", branch_name: str = "", force: bool = False) -> OperationResult:
@@ -390,7 +383,7 @@ class GitAction:
             OperationResult indicating success or failure
         """
         force_flag = "-D" if force else "-d"
-        self._run(f"git -C {shlex.quote(repo_path)} branch {force_flag} {shlex.quote(branch_name)}")
+        self.protocol.run_command(f"git -C {shlex.quote(repo_path)} branch {force_flag} {shlex.quote(branch_name)}", self.state)
         return OperationResult(success=True, message=f"Branch {branch_name} deleted")
 
     def diff(self, repo_path: str = ".", file_path: Optional[str] = None) -> str:
@@ -406,7 +399,7 @@ class GitAction:
         cmd = f"git -C {shlex.quote(repo_path)} diff"
         if file_path:
             cmd += f" {shlex.quote(file_path)}"
-        return self._run(cmd)
+        return self.protocol.run_command(cmd, self.state)
 
     def diff_stat(self, repo_path: str = ".", ref1: str = "", ref2: str = "HEAD") -> List[DiffStat]:
         """Get diff statistics between two refs.
@@ -423,7 +416,7 @@ class GitAction:
             ref1 = "HEAD~1"
 
         cmd = f"git -C {shlex.quote(repo_path)} diff --stat {shlex.quote(ref1)}...{shlex.quote(ref2)}"
-        output = self._run(cmd)
+        output = self.protocol.run_command(cmd, self.state)
 
         diff_stats = []
         for line in output.strip().split("\n"):

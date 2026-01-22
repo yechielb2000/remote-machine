@@ -8,7 +8,6 @@ from typing import List, Optional
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.errors.error_mapper import ErrorMapper
 from remote_machine.models.common_types import OperationResult
 from remote_machine.models.docker_types import (
     Container,
@@ -31,12 +30,6 @@ class DockerAction:
         self.protocol = protocol
         self.state = state
 
-    def _run(self, cmd: str) -> str:
-        """Run a command and raise mapped errors."""
-        result = self.protocol.exec(cmd, self.state)
-        ErrorMapper.raise_if_error(result)
-        return result.stdout
-
     def list_containers(self, all: bool = False) -> List[Container]:
         """List Docker containers.
 
@@ -48,7 +41,7 @@ class DockerAction:
         """
         all_flag = "-a" if all else ""
         cmd = f"docker ps {all_flag} --format '{{{{json .}}}}'"
-        output = self._run(cmd)
+        output = self.protocol.run_command(cmd, self.state)
 
         containers = []
         for line in output.strip().split("\n"):
@@ -81,7 +74,7 @@ class DockerAction:
             List of Image objects
         """
         cmd = "docker images --format '{{json .}}'"
-        output = self._run(cmd)
+        output = self.protocol.run_command(cmd, self.state)
 
         images = []
         for line in output.strip().split("\n"):
@@ -128,7 +121,7 @@ class DockerAction:
         Returns:
             OperationResult indicating success or failure
         """
-        self._run(f"docker start {shlex.quote(container_id)}")
+        self.protocol.run_command(f"docker start {shlex.quote(container_id)}", self.state)
         return OperationResult(success=True, message=f"Container {container_id} started")
 
     def stop_container(self, container_id: str, timeout: int = 10) -> OperationResult:
@@ -141,7 +134,7 @@ class DockerAction:
         Returns:
             OperationResult indicating success or failure
         """
-        self._run(f"docker stop -t {timeout} {shlex.quote(container_id)}")
+        self.protocol.run_command(f"docker stop -t {timeout} {shlex.quote(container_id)}", self.state)
         return OperationResult(success=True, message=f"Container {container_id} stopped")
 
     def remove_container(self, container_id: str, force: bool = False) -> OperationResult:
@@ -155,7 +148,7 @@ class DockerAction:
             OperationResult indicating success or failure
         """
         force_flag = "-f" if force else ""
-        self._run(f"docker rm {force_flag} {shlex.quote(container_id)}")
+        self.protocol.run_command(f"docker rm {force_flag} {shlex.quote(container_id)}", self.state)
         return OperationResult(success=True, message=f"Container {container_id} removed")
 
     def run_container(
@@ -207,7 +200,7 @@ class DockerAction:
         if command:
             cmd_parts.append(command)
 
-        output = self._run(" ".join(cmd_parts))
+        output = self.protocol.run_command(" ".join(cmd_parts), self.state)
         container_id = output.strip().split("\n")[0]
         return OperationResult(success=True, message=f"Container {container_id} started")
 
@@ -221,7 +214,7 @@ class DockerAction:
         Returns:
             Command output
         """
-        return self._run(f"docker exec {shlex.quote(container_id)} {command}")
+        return self.protocol.run_command(f"docker exec {shlex.quote(container_id)} {command}", self.state)
 
     def get_logs(self, container_id: str, tail: int = 100) -> str:
         """Get container logs.
@@ -233,7 +226,7 @@ class DockerAction:
         Returns:
             Container logs
         """
-        return self._run(f"docker logs --tail {tail} {shlex.quote(container_id)}")
+        return self.protocol.run_command(f"docker logs --tail {tail} {shlex.quote(container_id)}", self.state)
 
     def stats_container(self, container_id: str) -> Optional[ContainerStats]:
         """Get resource statistics for a container.
@@ -246,7 +239,7 @@ class DockerAction:
         """
         try:
             cmd = f"docker stats {shlex.quote(container_id)} --no-stream --format '{{{{json .}}}}'"
-            output = self._run(cmd)
+            output = self.protocol.run_command(cmd, self.state)
             data = json.loads(output.strip())
 
             def parse_size(size_str: str) -> int:
@@ -278,7 +271,7 @@ class DockerAction:
             DockerInfo object or None on error
         """
         try:
-            output = self._run("docker info --format json")
+            output = self.protocol.run_command("docker info --format json", self.state)
             data = json.loads(output)
 
             return DockerInfo(
@@ -306,7 +299,7 @@ class DockerAction:
         Returns:
             OperationResult indicating success or failure
         """
-        self._run(f"docker pull {shlex.quote(image)}")
+        self.protocol.run_command(f"docker pull {shlex.quote(image)}", self.state)
         return OperationResult(success=True, message=f"Image {image} pulled successfully")
 
     def push_image(self, image: str) -> OperationResult:
@@ -318,5 +311,5 @@ class DockerAction:
         Returns:
             OperationResult indicating success or failure
         """
-        self._run(f"docker push {shlex.quote(image)}")
+        self.protocol.run_command(f"docker push {shlex.quote(image)}", self.state)
         return OperationResult(success=True, message=f"Image {image} pushed successfully")
