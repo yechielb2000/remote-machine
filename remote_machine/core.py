@@ -5,22 +5,10 @@ Core RemoteMachine class with multi-hop SSH/proxy support.
 from __future__ import annotations
 from typing import Dict, Any, Optional, List
 
-from remote_machine.models.capabilities import Capabilities
+from remote_machine import actions
+from remote_machine.errors import ProtocolNotAvailable, PermissionDenied
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
-from remote_machine.actions.fs import FSAction
-from remote_machine.actions.ps import PSAction
-from remote_machine.actions.net import NETAction
-from remote_machine.actions.env import ENVAction
-from remote_machine.actions.sys import SYSAction
-from remote_machine.actions.service import ServiceAction
-from remote_machine.actions.device import DeviceAction
-from remote_machine.actions.proxy import ProxyAction
-from remote_machine.actions.docker import DockerAction
-from remote_machine.actions.git import GitAction
-from remote_machine.actions.firewall import FirewallAction
-from remote_machine.actions.cron import CronAction
-from remote_machine.errors import ProtocolNotAvailable, PermissionDenied
 
 
 class RemoteMachine:
@@ -56,18 +44,20 @@ class RemoteMachine:
         self.state = RemoteState()
 
         # Actions
-        self.fs = FSAction(self, self.state)
-        self.ps = PSAction(self, self.state)
-        self.net = NETAction(self, self.state)
-        self.env = ENVAction(self, self.state)
-        self.sys = SYSAction(self, self.state)
-        self.service = ServiceAction(self, self.state)
-        self.device = DeviceAction(self, self.state)
-        self.docker = DockerAction(self, self.state)
-        self.git = GitAction(self, self.state)
-        self.firewall = FirewallAction(self, self.state)
-        self.cron = CronAction(self, self.state)
-        self.proxy = ProxyAction(self)
+        self.fs = actions.FSAction(ssh, self.state)
+        self.ps = actions.PSAction(ssh, self.state)
+        self.net = actions.NETAction(ssh, self.state)
+        self.env = actions.ENVAction(ssh, self.state)
+        self.sys = actions.SYSAction(ssh, self.state)
+        self.service = actions.ServiceAction(ssh, self.state)
+        self.device = actions.DeviceAction(ssh, self.state)
+        self.docker = actions.DockerAction(ssh, self.state)
+        self.git = actions.GitAction(ssh, self.state)
+        self.firewall = actions.FirewallAction(ssh, self.state)
+        self.cron = actions.CronAction(ssh, self.state)
+        self.pythonenv = actions.PythonEnvAction(ssh, self.state)
+        self.onie = actions.ONIEAction(ssh, self.state)
+        self.proxy = actions.ProxyAction(self)
 
     def connection_layer(self, layer_index: int = -1) -> SSHProtocol:
         """Return SSHProtocol at a specific layer (supports multi-hop)."""

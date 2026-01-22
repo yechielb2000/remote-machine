@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import shlex
-import re
 from typing import List, Optional
-from datetime import datetime
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
