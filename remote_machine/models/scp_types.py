@@ -1,4 +1,5 @@
 """SCP related result types."""
+
 from dataclasses import dataclass
 
 

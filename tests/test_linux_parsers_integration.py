@@ -1,4 +1,5 @@
 """Tests that SYSAction prefers linux_parsers when available."""
+
 import sys
 import types
 
@@ -20,9 +21,9 @@ class FakeProtocol:
 
 def _mk_pkg_hierarchy(monkeypatch, package_path: str, module: types.ModuleType):
     """Ensure parent package modules exist in sys.modules for a nested module path."""
-    parts = package_path.split('.')
+    parts = package_path.split(".")
     for i in range(1, len(parts)):
-        pkg = '.'.join(parts[:i])
+        pkg = ".".join(parts[:i])
         if pkg not in sys.modules:
             monkeypatch.setitem(sys.modules, pkg, types.ModuleType(pkg))
     monkeypatch.setitem(sys.modules, package_path, module)
@@ -52,7 +53,13 @@ def test_memory_uses_linux_parsers(monkeypatch):
     free_mod = types.ModuleType("linux_parsers.parsers.system.free")
 
     def parse_free(text: str):
-        return {"total": 8000000, "available": 4500000, "used": 3500000, "swap_total": 2000000, "swap_used": 10000}
+        return {
+            "total": 8000000,
+            "available": 4500000,
+            "used": 3500000,
+            "swap_total": 2000000,
+            "swap_used": 10000,
+        }
 
     free_mod.parse_free = parse_free
 
@@ -70,7 +77,19 @@ def test_cpu_info_uses_linux_parsers(monkeypatch):
     cpu_mod = types.ModuleType("linux_parsers.parsers.system.proc_cpuinfo")
 
     def parse_cpu(text: str):
-        return {"processors": [{"processor": "0", "vendor_id": "ACME", "model name": "Test CPU", "cpu cores": 4, "cpu mhz": 2400.0, "flags": "fpu vme"}], "threads": 1}
+        return {
+            "processors": [
+                {
+                    "processor": "0",
+                    "vendor_id": "ACME",
+                    "model name": "Test CPU",
+                    "cpu cores": 4,
+                    "cpu mhz": 2400.0,
+                    "flags": "fpu vme",
+                }
+            ],
+            "threads": 1,
+        }
 
     cpu_mod.parse = parse_cpu
 
@@ -89,7 +108,13 @@ def test_os_release_uses_linux_parsers(monkeypatch):
     os_mod = types.ModuleType("linux_parsers.parsers.system.etc_os_release")
 
     def parse_os(text: str):
-        return {"name": "TestOS", "version": "1.2", "version_id": "1.2", "pretty_name": "TestOS 1.2", "id": "testos"}
+        return {
+            "name": "TestOS",
+            "version": "1.2",
+            "version_id": "1.2",
+            "pretty_name": "TestOS 1.2",
+            "id": "testos",
+        }
 
     os_mod.parse = parse_os
 
@@ -107,7 +132,13 @@ def test_loadavg_uses_linux_parsers(monkeypatch):
     la_mod = types.ModuleType("linux_parsers.parsers.system.proc_loadavg")
 
     def parse_la(text: str):
-        return {"one": 0.1, "five": 0.2, "fifteen": 0.3, "running_processes": 2, "total_processes": 100}
+        return {
+            "one": 0.1,
+            "five": 0.2,
+            "fifteen": 0.3,
+            "running_processes": 2,
+            "total_processes": 100,
+        }
 
     la_mod.parse = parse_la
 

@@ -1,4 +1,5 @@
 """Docker actions."""
+
 from __future__ import annotations
 
 import json
@@ -56,7 +57,9 @@ class DockerAction:
                         image=data.get("Image", ""),
                         status=data.get("Status", ""),
                         state=data.get("State", ""),
-                        created=datetime.fromisoformat(data.get("CreatedAt", "").replace("Z", "+00:00")),
+                        created=datetime.fromisoformat(
+                            data.get("CreatedAt", "").replace("Z", "+00:00")
+                        ),
                         started=None,  # Not provided by ps command
                         ports=data.get("Ports", "").split(", ") if data.get("Ports") else [],
                         command=data.get("Command", ""),
@@ -87,7 +90,9 @@ class DockerAction:
                         id=data.get("ID", ""),
                         repository=data.get("Repository", ""),
                         tag=data.get("Tag", ""),
-                        created=datetime.fromisoformat(data.get("CreatedAt", "").replace("Z", "+00:00")),
+                        created=datetime.fromisoformat(
+                            data.get("CreatedAt", "").replace("Z", "+00:00")
+                        ),
                         size=int(data.get("Size", "0").split()[0]) if data.get("Size") else 0,
                         virtual_size=0,  # Not provided by images command
                     )
@@ -134,7 +139,9 @@ class DockerAction:
         Returns:
             OperationResult indicating success or failure
         """
-        self.protocol.run_command(f"docker stop -t {timeout} {shlex.quote(container_id)}", self.state)
+        self.protocol.run_command(
+            f"docker stop -t {timeout} {shlex.quote(container_id)}", self.state
+        )
         return OperationResult(success=True, message=f"Container {container_id} stopped")
 
     def remove_container(self, container_id: str, force: bool = False) -> OperationResult:
@@ -214,7 +221,9 @@ class DockerAction:
         Returns:
             Command output
         """
-        return self.protocol.run_command(f"docker exec {shlex.quote(container_id)} {command}", self.state)
+        return self.protocol.run_command(
+            f"docker exec {shlex.quote(container_id)} {command}", self.state
+        )
 
     def get_logs(self, container_id: str, tail: int = 100) -> str:
         """Get container logs.
@@ -226,7 +235,9 @@ class DockerAction:
         Returns:
             Container logs
         """
-        return self.protocol.run_command(f"docker logs --tail {tail} {shlex.quote(container_id)}", self.state)
+        return self.protocol.run_command(
+            f"docker logs --tail {tail} {shlex.quote(container_id)}", self.state
+        )
 
     def stats_container(self, container_id: str) -> Optional[ContainerStats]:
         """Get resource statistics for a container.
@@ -252,10 +263,18 @@ class DockerAction:
 
             return ContainerStats(
                 container_id=data.get("Container", ""),
-                cpu_percent=float(data.get("CPUPerc", "0").rstrip("%")) if data.get("CPUPerc") else 0.0,
+                cpu_percent=(
+                    float(data.get("CPUPerc", "0").rstrip("%")) if data.get("CPUPerc") else 0.0
+                ),
                 memory_usage=parse_size(data.get("MemUsage", "0B").split()[0]),
-                memory_limit=parse_size(data.get("MemUsage", "").split()[-1]) if "/" in data.get("MemUsage", "") else 0,
-                memory_percent=float(data.get("MemPerc", "0").rstrip("%")) if data.get("MemPerc") else 0.0,
+                memory_limit=(
+                    parse_size(data.get("MemUsage", "").split()[-1])
+                    if "/" in data.get("MemUsage", "")
+                    else 0
+                ),
+                memory_percent=(
+                    float(data.get("MemPerc", "0").rstrip("%")) if data.get("MemPerc") else 0.0
+                ),
                 network_input=0,  # Not provided by stats command
                 network_output=0,
                 block_input=0,

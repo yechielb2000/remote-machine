@@ -1,4 +1,5 @@
 """Cron actions."""
+
 from __future__ import annotations
 
 import shlex
@@ -131,9 +132,7 @@ class CronAction:
                     if job:
                         jobs.append(job)
 
-                system_files.append(
-                    SystemCronFile(path=file_path, jobs=jobs)
-                )
+                system_files.append(SystemCronFile(path=file_path, jobs=jobs))
             except:
                 continue
 
@@ -160,7 +159,9 @@ class CronAction:
         # Get current crontab
         if username:
             try:
-                current = self.protocol.run_command(f"sudo crontab -u {shlex.quote(username)} -l", self.state)
+                current = self.protocol.run_command(
+                    f"sudo crontab -u {shlex.quote(username)} -l", self.state
+                )
             except:
                 current = ""
         else:
@@ -184,7 +185,9 @@ class CronAction:
         self.protocol.run_command(f"cat > {temp_file} << 'EOF'\n{crontab_content}EOF", self.state)
 
         if username:
-            self.protocol.run_command(f"sudo crontab -u {shlex.quote(username)} {temp_file}", self.state)
+            self.protocol.run_command(
+                f"sudo crontab -u {shlex.quote(username)} {temp_file}", self.state
+            )
         else:
             self.protocol.run_command(f"crontab {temp_file}", self.state)
 
@@ -208,15 +211,14 @@ class CronAction:
         """
         # Get current crontab
         if username:
-            current = self.protocol.run_command(f"sudo crontab -u {shlex.quote(username)} -l", self.state)
+            current = self.protocol.run_command(
+                f"sudo crontab -u {shlex.quote(username)} -l", self.state
+            )
         else:
             current = self.protocol.run_command("crontab -l", self.state)
 
         # Remove matching job
-        lines = [
-            line for line in current.split("\n")
-            if line.strip() and command not in line
-        ]
+        lines = [line for line in current.split("\n") if line.strip() and command not in line]
 
         # Write back
         crontab_content = "\n".join(lines) + "\n"
@@ -225,7 +227,9 @@ class CronAction:
         self.protocol.run_command(f"cat > {temp_file} << 'EOF'\n{crontab_content}EOF", self.state)
 
         if username:
-            self.protocol.run_command(f"sudo crontab -u {shlex.quote(username)} {temp_file}", self.state)
+            self.protocol.run_command(
+                f"sudo crontab -u {shlex.quote(username)} {temp_file}", self.state
+            )
         else:
             self.protocol.run_command(f"crontab {temp_file}", self.state)
 
@@ -265,11 +269,11 @@ class CronAction:
 
         # Check each field
         ranges = [
-            (0, 59),    # minute
-            (0, 23),    # hour
-            (1, 31),    # day of month
-            (1, 12),    # month
-            (0, 7),     # day of week
+            (0, 59),  # minute
+            (0, 23),  # hour
+            (1, 31),  # day of month
+            (1, 12),  # month
+            (0, 7),  # day of week
         ]
 
         for part, (min_val, max_val) in zip(parts, ranges):
@@ -372,7 +376,9 @@ class CronAction:
             True if cron is running, False otherwise
         """
         try:
-            self.protocol.run_command("systemctl is-active --quiet cron || systemctl is-active --quiet crond", self.state)
+            self.protocol.run_command(
+                "systemctl is-active --quiet cron || systemctl is-active --quiet crond", self.state
+            )
             return True
         except:
             return False

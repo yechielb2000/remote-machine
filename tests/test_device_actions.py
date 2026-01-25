@@ -1,4 +1,5 @@
 """Tests for DeviceAction linux_parsers usage."""
+
 import sys
 import types
 
@@ -37,14 +38,23 @@ def test_mounted_uses_parser(monkeypatch):
 
 
 def test_list_block_json_and_fallback(monkeypatch):
-    proto = FakeProtocol({"lsblk -J": '{"blockdevices": [{"name": "sda", "type": "disk", "children": [{"name": "sda1", "type": "part", "mountpoint": "/"}]}]}'})
+    proto = FakeProtocol(
+        {
+            "lsblk -J": '{"blockdevices": [{"name": "sda", "type": "disk", "children": [{"name": "sda1", "type": "part", "mountpoint": "/"}]}]}'
+        }
+    )
     d = DeviceAction(proto, RemoteState())
 
     devs = d.list_block()
     assert any(d.name == "sda" for d in devs)
 
     # fallback to /proc/partitions
-    proto2 = FakeProtocol({"lsblk -J": "", "cat /proc/partitions": "major minor  #blocks  name\n   8 0 488386584 sda\n"})
+    proto2 = FakeProtocol(
+        {
+            "lsblk -J": "",
+            "cat /proc/partitions": "major minor  #blocks  name\n   8 0 488386584 sda\n",
+        }
+    )
     d2 = DeviceAction(proto2, RemoteState())
     devs2 = d2.list_block()
     assert any(d.name == "sda" for d in devs2)

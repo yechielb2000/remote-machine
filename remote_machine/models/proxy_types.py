@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 import threading
 
+
 @dataclass
 class Proxy:
     local_host: str

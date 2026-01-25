@@ -92,7 +92,7 @@ class DiskUsage:
 
     @staticmethod
     def _humanize(size: int):
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        for unit in ["B", "KB", "MB", "GB", "TB"]:
             if size < 1024.0:
                 return f"{size:.1f}{unit}"
             size /= 1024.0

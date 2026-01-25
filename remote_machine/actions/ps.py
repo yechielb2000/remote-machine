@@ -1,4 +1,5 @@
 """Process actions."""
+
 from __future__ import annotations
 
 import time
@@ -111,7 +112,9 @@ class PSAction:
     def memory_usage(self, pid: int | None = None):
         """Return MemoryUsage system-wide or ProcessResourceUsage for pid."""
         if pid is None:
-            mem = parse_free_btlv(self.protocol.run_command("free -btlv")).get("Mem", {}, self.state)
+            mem = parse_free_btlv(self.protocol.run_command("free -btlv")).get(
+                "Mem", {}, self.state
+            )
             total = int(mem.get("total") or 0)
             used = int(mem.get("used") or 0)
             swap_total = int(mem.get("swap_total") or 0)
@@ -130,12 +133,12 @@ class PSAction:
                 swap_percent=(swap_used / swap_total * 100) if swap_total else 0.0,
             )
 
-        out = self.protocol.run_command(f"ps -o pid=,rss=,vsz=,pcpu= -p {pid}").split(, self.state)
+        out = self.protocol.run_command(f"ps -o pid=,rss=,vsz=,pcpu= -p {pid}", self.state)
         return ProcessResourceUsage(
             pid=pid,
             cpu_percent=0.0,
             memory_rss=int(out[1]) * 1024 if len(out) > 1 else 0,
-            memory_vms=int(out[2]) * 1024 if len(out) > 2 else 0
+            memory_vms=int(out[2]) * 1024 if len(out) > 2 else 0,
         )
 
     def cpu_usage(self, pid: int | None = None):
@@ -177,7 +180,9 @@ class PSAction:
             out = self.protocol.run_command(f"ps -o pid=,rss=,vsz=,pcpu= -p {int(pid)}", self.state)
             parts = out.strip().split()
             if not parts:
-                return ProcessResourceUsage(pid=int(pid), cpu_percent=0.0, memory_rss=0, memory_vms=0)
+                return ProcessResourceUsage(
+                    pid=int(pid), cpu_percent=0.0, memory_rss=0, memory_vms=0
+                )
             try:
                 cpu = float(parts[3]) if len(parts) > 3 else 0.0
             except Exception:
@@ -187,7 +192,9 @@ class PSAction:
                 vsz = int(parts[2]) * 1024 if len(parts) > 2 else 0
             except Exception:
                 rss = vsz = 0
-            return ProcessResourceUsage(pid=int(pid), cpu_percent=cpu, memory_rss=rss, memory_vms=vsz)
+            return ProcessResourceUsage(
+                pid=int(pid), cpu_percent=cpu, memory_rss=rss, memory_vms=vsz
+            )
 
     def get_children(self, pid: int) -> ProcessChildren:
         """Return child PIDs of `pid`. Args: pid"""

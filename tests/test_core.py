@@ -26,10 +26,10 @@ class TestRemoteState:
         env = {"DEBUG": "1"}
         state = RemoteState(cwd="/var/log", env=env)
         copy = state.copy()
-        
+
         assert copy.cwd == state.cwd
         assert copy.env == state.env
-        
+
         # Modify copy and ensure original is unchanged
         copy.env["DEBUG"] = "0"
         assert state.env["DEBUG"] == "1"
@@ -68,25 +68,15 @@ class TestCommandResult:
 
     def test_command_result_frozen(self):
         """Test that CommandResult is immutable."""
-        result = CommandResult(
-            command="ls -l",
-            stdout="file.txt",
-            stderr="",
-            exit_code=0
-        )
-        
+        result = CommandResult(command="ls -l", stdout="file.txt", stderr="", exit_code=0)
+
         with pytest.raises(AttributeError):
             result.exit_code = 1
 
     def test_command_result_repr(self):
         """Test CommandResult string representation."""
-        result = CommandResult(
-            command="ls -l",
-            stdout="file.txt",
-            stderr="",
-            exit_code=0
-        )
-        
+        result = CommandResult(command="ls -l", stdout="file.txt", stderr="", exit_code=0)
+
         repr_str = repr(result)
         assert "CommandResult" in repr_str
         assert "exit_code=0" in repr_str

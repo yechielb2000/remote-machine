@@ -1,4 +1,5 @@
 """Firewall actions."""
+
 from __future__ import annotations
 
 import shlex
@@ -184,7 +185,9 @@ class FirewallAction:
         self.protocol.run_command(" ".join(cmd_parts), self.state)
         return OperationResult(success=True, message=f"Rule deleted from {chain}")
 
-    def delete_rule_by_number(self, chain: str, rule_number: int, table: str = "filter") -> OperationResult:
+    def delete_rule_by_number(
+        self, chain: str, rule_number: int, table: str = "filter"
+    ) -> OperationResult:
         """Delete a firewall rule by line number.
 
         Args:
@@ -241,9 +244,7 @@ class FirewallAction:
             source=source,
         )
 
-    def set_default_policy(
-        self, chain: str, policy: str, table: str = "filter"
-    ) -> OperationResult:
+    def set_default_policy(self, chain: str, policy: str, table: str = "filter") -> OperationResult:
         """Set default policy for a chain.
 
         Args:
@@ -286,17 +287,21 @@ class FirewallAction:
         """
         # Try iptables-save first
         try:
-            self.protocol.run_command("sudo iptables-save | sudo tee /etc/iptables/rules.v4 > /dev/null", self.state)
+            self.protocol.run_command(
+                "sudo iptables-save | sudo tee /etc/iptables/rules.v4 > /dev/null", self.state
+            )
             return OperationResult(success=True, message="Rules saved to /etc/iptables/rules.v4")
         except:
             # Fallback to other methods
             try:
-                self.protocol.run_command("sudo sh -c 'iptables-save > /etc/iptables.rules'", self.state)
+                self.protocol.run_command(
+                    "sudo sh -c 'iptables-save > /etc/iptables.rules'", self.state
+                )
                 return OperationResult(success=True, message="Rules saved to /etc/iptables.rules")
             except:
                 return OperationResult(
                     success=False,
-                    message="Could not save rules - ensure iptables-persistent is installed"
+                    message="Could not save rules - ensure iptables-persistent is installed",
                 )
 
     def restore_rules(self, rules_file: str = "/etc/iptables/rules.v4") -> OperationResult:

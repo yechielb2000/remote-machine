@@ -1,4 +1,5 @@
 """Environment variable actions."""
+
 from __future__ import annotations
 
 from remote_machine.models.common_types import BoolResult, OperationResult

@@ -1,4 +1,5 @@
 """SSH protocol implementation using Paramiko."""
+
 import paramiko
 from typing import Any
 
@@ -15,7 +16,14 @@ class SSHProtocol:
     that don't have paramiko installed won't fail at import time.
     """
 
-    def __init__(self, host: str, user: str, key_path: str | None = None, password: str | None = None, port: int = 22):
+    def __init__(
+        self,
+        host: str,
+        user: str,
+        key_path: str | None = None,
+        password: str | None = None,
+        port: int = 22,
+    ):
         """Initialize SSH connection parameters.
 
         Args:

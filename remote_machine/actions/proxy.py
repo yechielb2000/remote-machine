@@ -111,7 +111,9 @@ class ProxyAction:
         return proxy
 
     @staticmethod
-    def _pipe(a: socket.socket | paramiko.Channel, b: socket.socket | paramiko.Channel, proxy: Proxy):
+    def _pipe(
+        a: socket.socket | paramiko.Channel, b: socket.socket | paramiko.Channel, proxy: Proxy
+    ):
         """Pipe data between two sockets/channels."""
         sockets = [a, b]
         try:
@@ -126,10 +128,14 @@ class ProxyAction:
                     else:
                         a.sendall(data)
         finally:
-            try: a.close()
-            except: pass
-            try: b.close()
-            except: pass
+            try:
+                a.close()
+            except:
+                pass
+            try:
+                b.close()
+            except:
+                pass
             proxy.running = False
 
     def connect_tunnel(
@@ -166,7 +172,7 @@ class ProxyAction:
         ssh_proto.port = port
 
         from remote_machine.core import RemoteMachine
-        
+
         # New RemoteMachine
         rm2 = RemoteMachine.__new__(RemoteMachine)
         rm2._ssh_layers = self._rm._ssh_layers + [ssh_proto]  # append new layer

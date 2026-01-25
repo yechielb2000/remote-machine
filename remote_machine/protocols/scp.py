@@ -9,6 +9,7 @@ Notes:
 - Maps common exceptions to remote_machine error types
 - All results are dataclasses (SCPResult)
 """
+
 from __future__ import annotations
 
 import paramiko
@@ -51,7 +52,9 @@ class SCPProtocol:
                 raise ConnectionError("Failed to create SFTP client") from e
         return self._sftp_client
 
-    def download(self, remote_path: str, local_path: Path, chunk_size: int = 1024 * 1024) -> SCPResult:
+    def download(
+        self, remote_path: str, local_path: Path, chunk_size: int = 1024 * 1024
+    ) -> SCPResult:
         """Download a remote file in fixed-size chunks and write to a local file.
 
         Args:
@@ -68,7 +71,7 @@ class SCPProtocol:
         bytes_transferred = 0
 
         try:
-           with self.sftp_client.open(remote_path, "rb") as remote_file:
+            with self.sftp_client.open(remote_path, "rb") as remote_file:
                 with open(local_path, "wb") as local_file:
                     while True:
                         chunk = remote_file.read(chunk_size)
@@ -76,13 +79,17 @@ class SCPProtocol:
                             break
                         local_file.write(chunk)
                         bytes_transferred += len(chunk)
-                return SCPResult(source=remote_path, destination=str(local_path), bytes_transferred=bytes_transferred)
+                return SCPResult(
+                    source=remote_path,
+                    destination=str(local_path),
+                    bytes_transferred=bytes_transferred,
+                )
 
         except FileNotFoundError as e:
             raise NotFound(f"File not found: {remote_path}") from e
         except PermissionError as e:
             raise PermissionDenied(f"Permission denied for: {remote_path}") from e
-        
+
     def upload(self, local_path: Path, remote_path: str) -> SCPResult:
         """Upload a local file to the remote path using SFTP put().
 
@@ -108,5 +115,6 @@ class SCPProtocol:
             except Exception:
                 pass
 
-        return SCPResult(source=str(local_path), destination=remote_path, bytes_transferred=bytes_transferred)
-
+        return SCPResult(
+            source=str(local_path), destination=remote_path, bytes_transferred=bytes_transferred
+        )

@@ -1,4 +1,5 @@
 """Tests for NETAction linux_parsers usage."""
+
 import sys
 import types
 
@@ -12,8 +13,12 @@ class FakeProtocol:
     def exec(self, command: str, state):
         for key, out in self.responses.items():
             if key in command:
-                return types.SimpleNamespace(command=command, stdout=out, stderr="", exit_code=0, success=True)
-        return types.SimpleNamespace(command=command, stdout="", stderr="", exit_code=0, success=True)
+                return types.SimpleNamespace(
+                    command=command, stdout=out, stderr="", exit_code=0, success=True
+                )
+        return types.SimpleNamespace(
+            command=command, stdout="", stderr="", exit_code=0, success=True
+        )
 
 
 def test_interfaces_uses_parser(monkeypatch):
@@ -29,7 +34,9 @@ def test_interfaces_uses_parser(monkeypatch):
     ip_mod.parse_ip_r = parse_ip_r
 
     monkeypatch.setitem(sys.modules, "linux_parsers", types.ModuleType("linux_parsers"))
-    monkeypatch.setitem(sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers"))
+    monkeypatch.setitem(
+        sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers")
+    )
     network_pkg = types.ModuleType("linux_parsers.parsers.network")
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network", network_pkg)
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network.ip", ip_mod)
@@ -47,9 +54,11 @@ def test_interfaces_uses_parser(monkeypatch):
     sys.modules.pop("remote_machine.actions.net", None)
     from importlib import reload
     import remote_machine.actions.net as _net_mod
+
     reload(_net_mod)
     from remote_machine.actions.net import NETAction
     from remote_machine.models.remote_state import RemoteState
+
     proto = FakeProtocol({"ip -o link": ""})
     n = NETAction(proto, RemoteState())
 
@@ -71,7 +80,9 @@ def test_ip_list_uses_parser(monkeypatch):
     ip_mod.parse_ip_r = parse_ip_r
 
     monkeypatch.setitem(sys.modules, "linux_parsers", types.ModuleType("linux_parsers"))
-    monkeypatch.setitem(sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers"))
+    monkeypatch.setitem(
+        sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers")
+    )
     network_pkg = types.ModuleType("linux_parsers.parsers.network")
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network", network_pkg)
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network.ip", ip_mod)
@@ -89,9 +100,11 @@ def test_ip_list_uses_parser(monkeypatch):
     sys.modules.pop("remote_machine.actions.net", None)
     from importlib import reload
     import remote_machine.actions.net as _net_mod
+
     reload(_net_mod)
     from remote_machine.actions.net import NETAction
     from remote_machine.models.remote_state import RemoteState
+
     proto = FakeProtocol({"ip a": ""})
     n = NETAction(proto, RemoteState())
 
@@ -111,7 +124,9 @@ def test_listening_ports_uses_parser(monkeypatch):
     ss_mod.parse_ss_tulnap = parse_ss_tulnap
 
     monkeypatch.setitem(sys.modules, "linux_parsers", types.ModuleType("linux_parsers"))
-    monkeypatch.setitem(sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers"))
+    monkeypatch.setitem(
+        sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers")
+    )
     network_pkg = types.ModuleType("linux_parsers.parsers.network")
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network", network_pkg)
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network.ss", ss_mod)
@@ -129,6 +144,7 @@ def test_listening_ports_uses_parser(monkeypatch):
     sys.modules["linux_parsers.parsers.network"].ping = ping_mod
     from remote_machine.actions.net import NETAction
     from remote_machine.models.remote_state import RemoteState
+
     proto = FakeProtocol({"ss -tulnap": ""})
     n = NETAction(proto, RemoteState())
 
@@ -149,7 +165,9 @@ def test_tcp_connections_uses_parser(monkeypatch):
     ss_mod.parse_ss_tulnap = parse_ss_tulnap
 
     monkeypatch.setitem(sys.modules, "linux_parsers", types.ModuleType("linux_parsers"))
-    monkeypatch.setitem(sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers"))
+    monkeypatch.setitem(
+        sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers")
+    )
     network_pkg = types.ModuleType("linux_parsers.parsers.network")
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network", network_pkg)
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network.ss", ss_mod)
@@ -167,6 +185,7 @@ def test_tcp_connections_uses_parser(monkeypatch):
     sys.modules["linux_parsers.parsers.network"].ping = ping_mod
     from remote_machine.actions.net import NETAction
     from remote_machine.models.remote_state import RemoteState
+
     proto = FakeProtocol({"ss -tnp": ""})
     n = NETAction(proto, RemoteState())
 
@@ -190,7 +209,9 @@ def test_route_list_uses_parser(monkeypatch):
     ip_mod.parse_ip_a = parse_ip_a
 
     monkeypatch.setitem(sys.modules, "linux_parsers", types.ModuleType("linux_parsers"))
-    monkeypatch.setitem(sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers"))
+    monkeypatch.setitem(
+        sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers")
+    )
     network_pkg = types.ModuleType("linux_parsers.parsers.network")
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network", network_pkg)
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network.ip", ip_mod)
@@ -208,9 +229,11 @@ def test_route_list_uses_parser(monkeypatch):
     sys.modules.pop("remote_machine.actions.net", None)
     from importlib import reload
     import remote_machine.actions.net as _net_mod
+
     reload(_net_mod)
     from remote_machine.actions.net import NETAction
     from remote_machine.models.remote_state import RemoteState
+
     proto = FakeProtocol({"ip r": ""})
     n = NETAction(proto, RemoteState())
 
@@ -230,7 +253,9 @@ def test_ping_uses_parser(monkeypatch):
     ping_mod.parse_ping = parse_ping
 
     monkeypatch.setitem(sys.modules, "linux_parsers", types.ModuleType("linux_parsers"))
-    monkeypatch.setitem(sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers"))
+    monkeypatch.setitem(
+        sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers")
+    )
     network_pkg = types.ModuleType("linux_parsers.parsers.network")
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network", network_pkg)
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.network.ping", ping_mod)
@@ -249,9 +274,11 @@ def test_ping_uses_parser(monkeypatch):
     sys.modules.pop("remote_machine.actions.net", None)
     from importlib import reload
     import remote_machine.actions.net as _net_mod
+
     reload(_net_mod)
     from remote_machine.actions.net import NETAction
     from remote_machine.models.remote_state import RemoteState
+
     proto = FakeProtocol({"ping": "PING\n---"})
     n = NETAction(proto, RemoteState())
 

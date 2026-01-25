@@ -1,4 +1,5 @@
 """System actions."""
+
 from __future__ import annotations
 
 from typing import List
@@ -58,11 +59,11 @@ class SYSAction:
 
     def uname(self) -> UnameInfo:
         """Get system name and information as a dataclass."""
-        sysname = self.protocol.run_command("uname -s").strip(, self.state)
-        nodename = self.protocol.run_command("uname -n").strip(, self.state)
-        release = self.protocol.run_command("uname -r").strip(, self.state)
-        version = self.protocol.run_command("uname -v").strip(, self.state)
-        machine = self.protocol.run_command("uname -m").strip(, self.state)
+        sysname = self.protocol.run_command("uname -s", self.state)
+        nodename = self.protocol.run_command("uname -n", self.state)
+        release = self.protocol.run_command("uname -r", self.state)
+        version = self.protocol.run_command("uname -v", self.state)
+        machine = self.protocol.run_command("uname -m", self.state)
 
         return UnameInfo(
             sysname=sysname,
@@ -74,7 +75,7 @@ class SYSAction:
 
     def uptime(self) -> UptimeInfo:
         """Get system uptime using /proc/uptime parser."""
-        out = self.protocol.run_command("cat /proc/uptime").strip(, self.state)
+        out = self.protocol.run_command("cat /proc/uptime", self.state)
 
         parsed = parse_proc_uptime_file(out)
 
@@ -97,7 +98,7 @@ class SYSAction:
 
     def hostname(self) -> str:
         """Get system hostname."""
-        return self.protocol.run_command("hostname").strip(, self.state)
+        return self.protocol.run_command("hostname", self.state)
 
     def set_hostname(self, hostname: str) -> None:
         """Set system hostname."""
@@ -105,7 +106,7 @@ class SYSAction:
 
     def kernel_version(self) -> str:
         """Get kernel version string."""
-        return self.protocol.run_command("uname -r").strip(, self.state)
+        return self.protocol.run_command("uname -r", self.state)
 
     def os_release(self) -> OSRelease:
         """Parse /etc/os-release."""
@@ -172,7 +173,9 @@ class SYSAction:
 
     def cpu_info(self) -> List[CPUInfo]:
         """Parse /proc/cpuinfo and return per-CPU info."""
-        processors = parse_proc_cpuinfo_file(self.protocol.run_command("cat /proc/cpuinfo"), self.state)
+        processors = parse_proc_cpuinfo_file(
+            self.protocol.run_command("cat /proc/cpuinfo"), self.state
+        )
 
         cpu_infos: List[CPUInfo] = []
 
@@ -204,7 +207,7 @@ class SYSAction:
         return out.count("processor\t:") or out.count("processor :") or out.count("processor")
 
     def load_average(self) -> LoadAverage:
-        out = self.protocol.run_command("cat /proc/loadavg").strip(, self.state)
+        out = self.protocol.run_command("cat /proc/loadavg", self.state)
 
         parts = out.split()
         running_total = parts[3] if len(parts) > 3 else "0/0"
@@ -221,7 +224,7 @@ class SYSAction:
     def timezone(self) -> str:
         """Get system timezone via timedatectl or /etc/localtime link (best-effort)."""
         try:
-            out = self.protocol.run_command("timedatectl show -p Timezone --value").strip(, self.state)
+            out = self.protocol.run_command("timedatectl show -p Timezone --value", self.state)
             if out:
                 return out
         except Exception:
@@ -229,7 +232,7 @@ class SYSAction:
 
         # fallback to readlink /etc/localtime
         try:
-            out = self.protocol.run_command("readlink -f /etc/localtime").strip(, self.state)
+            out = self.protocol.run_command("readlink -f /etc/localtime", self.state)
             parts = out.split("zoneinfo/")
             if len(parts) == 2:
                 return parts[1]
@@ -262,8 +265,7 @@ class SYSAction:
         for record in parsed.get("users_records", []):
             try:
                 login_time = datetime.strptime(
-                    f"{record['date']} {record['time']}",
-                    "%Y-%m-%d %H:%M"
+                    f"{record['date']} {record['time']}", "%Y-%m-%d %H:%M"
                 )
             except Exception:
                 login_time = datetime.now()
@@ -285,5 +287,5 @@ class SYSAction:
         cmd = "last -w" + (f" {username}" if username else "")
         out = self.protocol.run_command(cmd, self.state)
         # returning raw lines for now
-        lines = [l for l in out.splitlines() if l and not l.startswith("wtmp")] 
+        lines = [l for l in out.splitlines() if l and not l.startswith("wtmp")]
         return lines

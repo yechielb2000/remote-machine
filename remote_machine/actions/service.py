@@ -1,4 +1,5 @@
 """Service management actions."""
+
 from __future__ import annotations
 
 import shlex
@@ -35,7 +36,9 @@ class ServiceAction:
 
     def list(self) -> ServiceList:
         """Return list of services as ServiceList dataclass."""
-        out = self.protocol.exec("systemctl list-units --type=service --all --no-legend --no-pager", self.state)
+        out = self.protocol.exec(
+            "systemctl list-units --type=service --all --no-legend --no-pager", self.state
+        )
         ErrorMapper.raise_if_error(out)
         lines = out.stdout.splitlines()
         services: list[ServiceStatus] = []
@@ -46,22 +49,27 @@ class ServiceAction:
             if len(parts) < 5:
                 continue
             name, load, active, sub, desc = parts
-            services.append(ServiceStatus(
-                name=name,
-                state=active,
-                enabled=(True if active.lower() == "active" else False),
-                active=(active.lower() == "active"),
-                loaded=(load.lower() == "loaded"),
-                pid=None,
-                memory=None,
-                cpu_percent=None,
-                uptime=None,
-            ))
+            services.append(
+                ServiceStatus(
+                    name=name,
+                    state=active,
+                    enabled=(True if active.lower() == "active" else False),
+                    active=(active.lower() == "active"),
+                    loaded=(load.lower() == "loaded"),
+                    pid=None,
+                    memory=None,
+                    cpu_percent=None,
+                    uptime=None,
+                )
+            )
         return ServiceList(services=services, count=len(services))
 
     def status(self, service: str) -> ServiceStatus:
         """Return status for `service` as ServiceStatus dataclass."""
-        out = self.protocol.run_command(f"systemctl show {shlex.quote(service)} --no-page -p ActiveState -p SubState -p LoadState -p MainPID -p MemoryCurrent -p CPUUsageNSec -p ExecMainStartTimestamp", self.state)
+        out = self.protocol.run_command(
+            f"systemctl show {shlex.quote(service)} --no-page -p ActiveState -p SubState -p LoadState -p MainPID -p MemoryCurrent -p CPUUsageNSec -p ExecMainStartTimestamp",
+            self.state,
+        )
         data: dict = {}
         for line in out.splitlines():
             if "=" in line:
@@ -69,9 +77,21 @@ class ServiceAction:
                 data[k] = v
         active = data.get("ActiveState") or "unknown"
         sub = data.get("SubState") or "unknown"
-        pid = int(data.get("MainPID")) if data.get("MainPID") and data.get("MainPID").isdigit() else None
-        mem = int(data.get("MemoryCurrent")) if data.get("MemoryCurrent") and data.get("MemoryCurrent").isdigit() else None
-        cpu_nsec = int(data.get("CPUUsageNSec")) if data.get("CPUUsageNSec") and data.get("CPUUsageNSec").isdigit() else None
+        pid = (
+            int(data.get("MainPID"))
+            if data.get("MainPID") and data.get("MainPID").isdigit()
+            else None
+        )
+        mem = (
+            int(data.get("MemoryCurrent"))
+            if data.get("MemoryCurrent") and data.get("MemoryCurrent").isdigit()
+            else None
+        )
+        cpu_nsec = (
+            int(data.get("CPUUsageNSec"))
+            if data.get("CPUUsageNSec") and data.get("CPUUsageNSec").isdigit()
+            else None
+        )
         cpu_percent = (cpu_nsec / 1e9 * 100) if cpu_nsec is not None else None
         uptime = None
         return ServiceStatus(
@@ -138,7 +158,10 @@ class ServiceAction:
         """Return last `lines` of `service` logs as ServiceLogList dataclass; `follow` is not supported."""
         if follow:
             raise NotImplementedError("Follow streaming logs is not supported in this API")
-        out = self.protocol.run_command(f"journalctl -u {shlex.quote(service)} -n {int(lines)} --no-pager --output=short", self.state)
+        out = self.protocol.run_command(
+            f"journalctl -u {shlex.quote(service)} -n {int(lines)} --no-pager --output=short",
+            self.state,
+        )
         logs: list[ServiceLog] = []
         for line in out.splitlines():
             # Very lax parsing: try to split timestamp and message
@@ -154,7 +177,9 @@ class ServiceAction:
                 ts = datetime.now()
             except Exception:
                 pass
-            logs.append(ServiceLog(timestamp=ts or datetime.now(), level="info", message=msg, unit=service))
+            logs.append(
+                ServiceLog(timestamp=ts or datetime.now(), level="info", message=msg, unit=service)
+            )
         return ServiceLogList(service=service, logs=logs, count=len(logs))
 
     def get_config(self, service: str) -> ServiceConfig:
@@ -223,7 +248,9 @@ class ServiceAction:
 
     def dependencies(self, service: str) -> ServiceDependencies:
         """Get service dependencies (requires/systemd) and return ServiceDependencies."""
-        out = self.protocol.run_command(f"systemctl list-dependencies {shlex.quote(service)} --no-pager", self.state)
+        out = self.protocol.run_command(
+            f"systemctl list-dependencies {shlex.quote(service)} --no-pager", self.state
+        )
         dependencies: list[ServiceDependency] = []
         dependents: list[str] = []
         for line in out.splitlines():
@@ -231,10 +258,14 @@ class ServiceAction:
             if not line:
                 continue
             # lines include hierarchical glyphs; we just take service names
-            if line.endswith('.service'):
+            if line.endswith(".service"):
                 # choose whether this is a dependency or dependent based on indentation
-                if line.startswith('\u2502') or line.startswith(' '):
-                    dependencies.append(ServiceDependency(name=line, type='Requires', is_satisfied=True))
+                if line.startswith("\u2502") or line.startswith(" "):
+                    dependencies.append(
+                        ServiceDependency(name=line, type="Requires", is_satisfied=True)
+                    )
                 else:
                     dependents.append(line)
-        return ServiceDependencies(service=service, dependencies=dependencies, dependents=dependents)
+        return ServiceDependencies(
+            service=service, dependencies=dependencies, dependents=dependents
+        )

@@ -56,7 +56,7 @@ class RemoteMachine:
         self.git = actions.GitAction(ssh, self.state)
         self.firewall = actions.FirewallAction(ssh, self.state)
         self.cron = actions.CronAction(ssh, self.state)
-        self.pythonenv = actions.PythonEnvAction(ssh, self.state)
+        self.python = actions.PythonEnvAction(ssh, self.state)
         self.onie = actions.ONIEAction(ssh, self.state)
         self.proxy = actions.ProxyAction(self)
 
@@ -99,13 +99,26 @@ class RemoteMachine:
             raise ProtocolNotAvailable({"ssh"})
 
         from remote_machine.protocols.scp import SCPProtocol
+
         self._protocols["scp"] = SCPProtocol(self._protocols["ssh"])
 
     def capabilities(self) -> Capabilities:
         """Return currently available protocols and actions."""
         return Capabilities(
             protocols=set(self._protocols.keys()),
-            actions={"fs", "ps", "net", "env", "sys", "service", "device", "docker", "git", "firewall", "cron"},
+            actions={
+                "fs",
+                "ps",
+                "net",
+                "env",
+                "sys",
+                "service",
+                "device",
+                "docker",
+                "git",
+                "firewall",
+                "cron",
+            },
         )
 
     def __enter__(self) -> "RemoteMachine":

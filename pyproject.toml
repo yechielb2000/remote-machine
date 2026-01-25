@@ -75,3 +75,9 @@ strict_optional = true
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --cov=remote_machine --cov-report=term-only"
+
+[dependency-groups]
+dev = [
+    "black>=25.12.0",
+    "pytest>=9.0.2",
+]

@@ -1,4 +1,5 @@
 """ONIE actions."""
+
 from __future__ import annotations
 
 import shlex
@@ -71,7 +72,9 @@ class ONIEAction:
         """Get current ONIE boot mode."""
         return self._run("onie-boot-mode -g").strip()
 
-    def set_boot_mode(self, mode: Literal["install", "rescue", "uninstall", "normal", "update"]) -> OperationResult:
+    def set_boot_mode(
+        self, mode: Literal["install", "rescue", "uninstall", "normal", "update"]
+    ) -> OperationResult:
         """Set ONIE boot mode."""
         self._run(f"onie-boot-mode -s {shlex.quote(mode)}")
         return OperationResult(True, f"Boot mode set to {mode}")

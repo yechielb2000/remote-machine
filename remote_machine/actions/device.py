@@ -1,4 +1,5 @@
 """Device management actions."""
+
 from __future__ import annotations
 import shlex
 import json
@@ -22,6 +23,7 @@ from remote_machine.models.common_types import IDResult
 
 from linux_parsers.parsers.filesystem.mount import parse_mount
 
+
 class DeviceAction:
     """Hardware device management operations."""
 
@@ -41,21 +43,25 @@ class DeviceAction:
 
         # Get basic device list from /sys/devices
         try:
-            output = self.protocol.run_command("find /sys/devices -name 'modalias' 2>/dev/null | head -20", self.state)
+            output = self.protocol.run_command(
+                "find /sys/devices -name 'modalias' 2>/dev/null | head -20", self.state
+            )
             for line in output.splitlines():
                 if line.strip():
                     device_path = line.replace("/modalias", "")
                     device_name = device_path.split("/")[-1]
 
-                    devices.append(DeviceInfo(
-                        name=device_name,
-                        device_path=device_path,
-                        vendor="unknown",
-                        model="unknown",
-                        driver=None,
-                        enabled=True,
-                        power_state="unknown"
-                    ))
+                    devices.append(
+                        DeviceInfo(
+                            name=device_name,
+                            device_path=device_path,
+                            vendor="unknown",
+                            model="unknown",
+                            driver=None,
+                            enabled=True,
+                            power_state="unknown",
+                        )
+                    )
         except Exception:
             pass
 
@@ -65,7 +71,10 @@ class DeviceAction:
         """Return list of block device info as BlockDevice dataclasses."""
         try:
             # prefer lsblk JSON output
-            out = self.protocol.run_command("lsblk -J -o NAME,TYPE,SIZE,MOUNTPOINT,RO,FSTYPE,UUID,LABEL,MODEL,SERIAL", self.state)
+            out = self.protocol.run_command(
+                "lsblk -J -o NAME,TYPE,SIZE,MOUNTPOINT,RO,FSTYPE,UUID,LABEL,MODEL,SERIAL",
+                self.state,
+            )
             j = json.loads(out)
             devices: list[BlockDevice] = []
 
@@ -85,9 +94,22 @@ class DeviceAction:
                     label = node.get("label") or node.get("LABEL") or None
                     model = node.get("model") or None
                     serial = node.get("serial") or None
-                    devices.append(BlockDevice(name=name, path=path, size=size, ro=ro, fstype=fstype, uuid=uuid, label=label, model=model, serial=serial))
+                    devices.append(
+                        BlockDevice(
+                            name=name,
+                            path=path,
+                            size=size,
+                            ro=ro,
+                            fstype=fstype,
+                            uuid=uuid,
+                            label=label,
+                            model=model,
+                            serial=serial,
+                        )
+                    )
                     for c in node.get("children", []) or []:
                         walk(c)
+
             for d in j.get("blockdevices", []) or []:
                 walk(d)
             return devices
@@ -101,7 +123,19 @@ class DeviceAction:
                 parts = line.split()
                 if len(parts) >= 4:
                     name = parts[3]
-                    devices.append(BlockDevice(name=name, path=f"/dev/{name}", size=int(parts[2]) * 1024, ro=False, fstype=None, uuid=None, label=None, model=None, serial=None))
+                    devices.append(
+                        BlockDevice(
+                            name=name,
+                            path=f"/dev/{name}",
+                            size=int(parts[2]) * 1024,
+                            ro=False,
+                            fstype=None,
+                            uuid=None,
+                            label=None,
+                            model=None,
+                            serial=None,
+                        )
+                    )
             return devices
 
     def get_device_info(self, device: str) -> BlockDevice | DeviceInfo:
@@ -117,12 +151,18 @@ class DeviceAction:
 
             # attempt to fetch block device info via lsblk
             try:
-                out = self.protocol.run_command(f"lsblk -J -o NAME,TYPE,SIZE,RO,FSTYPE,UUID,LABEL,MODEL,SERIAL {shlex.quote(device_path)}", self.state)
+                out = self.protocol.run_command(
+                    f"lsblk -J -o NAME,TYPE,SIZE,RO,FSTYPE,UUID,LABEL,MODEL,SERIAL {shlex.quote(device_path)}",
+                    self.state,
+                )
                 j = json.loads(out)
                 # find the device
                 if j.get("blockdevices"):
                     for d in j.get("blockdevices"):
-                        if d.get("name") and (f"/dev/{d.get('name')}" == device_path or d.get("name") == device.replace('/dev/', '')):
+                        if d.get("name") and (
+                            f"/dev/{d.get('name')}" == device_path
+                            or d.get("name") == device.replace("/dev/", "")
+                        ):
                             size = int(d.get("size_bytes") or 0) if d.get("size_bytes") else 0
                             return BlockDevice(
                                 name=d.get("name"),
@@ -140,7 +180,7 @@ class DeviceAction:
 
             # fallback to basic DeviceInfo
             info = DeviceInfo(
-                name=device.replace('/dev/', ''),
+                name=device.replace("/dev/", ""),
                 device_path=device_path,
                 vendor="",
                 model="",
@@ -150,7 +190,15 @@ class DeviceAction:
             )
             return info
         except Exception:
-            return DeviceInfo(name=device, device_path=device, vendor="", model="", driver=None, enabled=False, power_state="unknown")
+            return DeviceInfo(
+                name=device,
+                device_path=device,
+                vendor="",
+                model="",
+                driver=None,
+                enabled=False,
+                power_state="unknown",
+            )
 
     def mount(self, device: str, path: str, fstype: str | None = None) -> None:
         """Mount `device` at `path` (optional fstype).
@@ -190,7 +238,7 @@ class DeviceAction:
         ]
 
         return MountedList(mount_points=mount_points, count=len(mount_points))
-    
+
     def fsck(self, device: str, fix: bool = False) -> FSCKResult:
         """Run fsck on `device`, optionally attempting fixes and return FSCKResult."""
         cmd = f"fsck"
@@ -203,14 +251,30 @@ class DeviceAction:
         try:
             output = self.protocol.run_command(cmd, self.state)
             status = "clean" if "clean" in output.lower() else "unknown"
-            return FSCKResult(device=device, status=status, errors_found=0, errors_fixed=0, inodes_checked=0, blocks_checked=0, fragments=0)
+            return FSCKResult(
+                device=device,
+                status=status,
+                errors_found=0,
+                errors_fixed=0,
+                inodes_checked=0,
+                blocks_checked=0,
+                fragments=0,
+            )
         except Exception as e:
-            return FSCKResult(device=device, status="error", errors_found=1, errors_fixed=0, inodes_checked=0, blocks_checked=0, fragments=0)
+            return FSCKResult(
+                device=device,
+                status="error",
+                errors_found=1,
+                errors_fixed=0,
+                inodes_checked=0,
+                blocks_checked=0,
+                fragments=0,
+            )
 
     def mkfs(self, device: str, fstype: str) -> None:
         """Create filesystem `fstype` on `device`. Args: device, fstype"""
         self.protocol.run_command(f"mkfs.{fstype} {shlex.quote(device)}", self.state)
-        
+
     def temperature(self, device: str | None = None) -> TemperatureInfo | dict:
         """Return temperature info for `device` or a generic structure."""
         try:
@@ -225,7 +289,14 @@ class DeviceAction:
                         except Exception:
                             c = 0.0
                         f = c * 9.0 / 5.0 + 32.0
-                        return TemperatureInfo(device=device, celsius=c, fahrenheit=f, high_threshold=None, critical_threshold=None, status="ok")
+                        return TemperatureInfo(
+                            device=device,
+                            celsius=c,
+                            fahrenheit=f,
+                            high_threshold=None,
+                            critical_threshold=None,
+                            status="ok",
+                        )
             else:
                 output = self.protocol.run_command("sensors", self.state)
                 # best-effort: return first numeric temperature found
@@ -235,7 +306,14 @@ class DeviceAction:
                             part = line.split("+")[-1]
                             val = float(part.split("°C")[0].strip())
                             f = val * 9.0 / 5.0 + 32.0
-                            return TemperatureInfo(device="system", celsius=val, fahrenheit=f, high_threshold=None, critical_threshold=None, status="ok")
+                            return TemperatureInfo(
+                                device="system",
+                                celsius=val,
+                                fahrenheit=f,
+                                high_threshold=None,
+                                critical_threshold=None,
+                                status="ok",
+                            )
                         except Exception:
                             continue
                 return {"output": output, "source": "sensors"}
@@ -249,7 +327,9 @@ class DeviceAction:
         try:
             if device:
                 output = self.protocol.run_command(f"hdparm -C {shlex.quote(device)}", self.state)
-                return PowerStatus(device=device, status=output.strip(), power_consumption=None, power_supply=None)
+                return PowerStatus(
+                    device=device, status=output.strip(), power_consumption=None, power_supply=None
+                )
             else:
                 output = self.protocol.run_command("acpi -a", self.state)
                 return {"output": output, "source": "acpi"}
@@ -301,10 +381,24 @@ class DeviceAction:
                     pin_num = line.replace("gpio", "")
                     if pin_num.isdigit():
                         try:
-                            direction = self.protocol.run_command(f"cat /sys/class/gpio/gpio{pin_num}/direction").strip(, self.state)
-                            value = int(self.protocol.run_command(f"cat /sys/class/gpio/gpio{pin_num}/value").strip(), self.state)
+                            direction = self.protocol.run_command(
+                                f"cat /sys/class/gpio/gpio{pin_num}/direction", self.state
+                            )
+                            value = int(
+                                self.protocol.run_command(
+                                    f"cat /sys/class/gpio/gpio{pin_num}/value", self.state
+                                )
+                            )
 
-                            pins.append(GPIOPin(pin=int(pin_num), value=value, direction=direction, active_low=False, available=True))
+                            pins.append(
+                                GPIOPin(
+                                    pin=int(pin_num),
+                                    value=value,
+                                    direction=direction,
+                                    active_low=False,
+                                    available=True,
+                                )
+                            )
                         except Exception:
                             continue
 
@@ -315,7 +409,9 @@ class DeviceAction:
     def gpio_read(self, pin: int) -> IDResult:
         """Read the value of GPIO `pin` and return as IDResult (0 or 1). Args: pin"""
         try:
-            output = self.protocol.run_command(f"cat /sys/class/gpio/gpio{int(pin)}/value", self.state)
+            output = self.protocol.run_command(
+                f"cat /sys/class/gpio/gpio{int(pin)}/value", self.state
+            )
             return IDResult(key=str(pin), id=int(output.strip()))
         except Exception:
             return IDResult(key=str(pin), id=None)

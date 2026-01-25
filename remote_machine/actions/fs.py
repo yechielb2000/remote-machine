@@ -1,4 +1,5 @@
 """Filesystem actions."""
+
 from datetime import datetime
 import shlex
 
@@ -15,7 +16,12 @@ from linux_parsers.parsers.filesystem.df import parse_df
 
 from remote_machine.models.common_types import OperationResult
 from remote_machine.models.filesystem_types import (
-    FileContent, FileInfo, DirectoryEntry, DirectoryListing, DiskUsage, FileFindResult
+    FileContent,
+    FileInfo,
+    DirectoryEntry,
+    DirectoryListing,
+    DiskUsage,
+    FileFindResult,
 )
 
 
@@ -43,18 +49,20 @@ class FSAction:
             try:
                 perms = parse_permissions(entry["Permissions"])
             except ValueError:
-                perms = ''
+                perms = ""
 
-            entries.append(DirectoryEntry(
-                name=entry["File"],
-                path=entry["File"],
-                type=perms.entry_type if perms else None,
-                size=int(entry["Size"]),
-                modified=datetime.strptime(entry["LastModified"], "%b %d %H:%M"),
-                owner=entry["Owner"],
-                group=entry["Group"],
-                permissions=perms
-            ))
+            entries.append(
+                DirectoryEntry(
+                    name=entry["File"],
+                    path=entry["File"],
+                    type=perms.entry_type if perms else None,
+                    size=int(entry["Size"]),
+                    modified=datetime.strptime(entry["LastModified"], "%b %d %H:%M"),
+                    owner=entry["Owner"],
+                    group=entry["Group"],
+                    permissions=perms,
+                )
+            )
         return DirectoryListing(entries=entries, count=len(entries), path=resolved_path)
 
     def cd(self, path: str) -> OperationResult:
@@ -81,7 +89,9 @@ class FSAction:
         resolved_path = self.resolver.resolve(path, self.state.cwd)
         # Use printf instead of echo for better handling of special characters
         escaped_content = content.replace("'", "'\"'\"'")
-        self.protocol.run_command(f"printf '%s' '{escaped_content}' > {shlex.quote(resolved_path)}", self.state)
+        self.protocol.run_command(
+            f"printf '%s' '{escaped_content}' > {shlex.quote(resolved_path)}", self.state
+        )
         return OperationResult(success=True, message=None)
 
     def mkdir(self, path: str, parents: bool = False) -> None:
@@ -128,7 +138,9 @@ class FSAction:
         """Copy `src` to `dst` (both resolved against cwd). Args: src, dst"""
         src_path = self.resolver.resolve(src, self.state.cwd)
         dst_path = self.resolver.resolve(dst, self.state.cwd)
-        self.protocol.run_command(f"cp -r {shlex.quote(src_path)} {shlex.quote(dst_path)}", self.state)
+        self.protocol.run_command(
+            f"cp -r {shlex.quote(src_path)} {shlex.quote(dst_path)}", self.state
+        )
 
     def move(self, src: str, dst: str) -> None:
         """Move/rename `src` to `dst`. Args: src, dst"""
@@ -163,7 +175,7 @@ class FSAction:
             created=datetime.fromtimestamp(parsed.get("ctime", 0)),
             is_symlink=parsed.get("type", "").lower().startswith("symbolic"),
             is_file=parsed.get("type", "").lower().startswith("regular"),
-            is_dir=parsed.get("type", "").lower().startswith("directory")
+            is_dir=parsed.get("type", "").lower().startswith("directory"),
         )
 
     def df(self, path: str = ".") -> List[DiskUsage]:
@@ -171,18 +183,22 @@ class FSAction:
         disks = parse_df(self.protocol.run_command(f"df {shlex.quote(resolved_path)}"), self.state)
         disks_usage = []
         for disk in disks:
-            disks_usage.append(DiskUsage(
-            path=resolved_path,
-            filesystem=disk['Filesystem'],
-            blocks=disk['Blocks'],
-            used=int(disk['Used']),
-            available=int(disk['Available']),
-            percent=disk['UsePercent'],
-            mounted=disk['Mounted']
-        ))
+            disks_usage.append(
+                DiskUsage(
+                    path=resolved_path,
+                    filesystem=disk["Filesystem"],
+                    blocks=disk["Blocks"],
+                    used=int(disk["Used"]),
+                    available=int(disk["Available"]),
+                    percent=disk["UsePercent"],
+                    mounted=disk["Mounted"],
+                )
+            )
         return disks_usage
 
-    def find(self, path: str = ".", name: str | None = None, type_: str | None = None) -> FileFindResult:
+    def find(
+        self, path: str = ".", name: str | None = None, type_: str | None = None
+    ) -> FileFindResult:
         """Find files under `path` matching `name` and `type_`. Args: path, name, type_"""
         resolved_path = self.resolver.resolve(path, self.state.cwd)
 
@@ -201,10 +217,7 @@ class FSAction:
         pattern = name or "*"
 
         return FileFindResult(
-            pattern=pattern,
-            root_path=resolved_path,
-            matches=matches,
-            count=len(matches)
+            pattern=pattern, root_path=resolved_path, matches=matches, count=len(matches)
         )
 
     @requires_protocols("scp")
@@ -218,7 +231,9 @@ class FSAction:
         return scp.upload(local_path, remote_path)
 
     # Archive operations
-    def create_tar(self, source_path: str, archive_path: str, compress: str = "gz") -> OperationResult:
+    def create_tar(
+        self, source_path: str, archive_path: str, compress: str = "gz"
+    ) -> OperationResult:
         """Create a tar archive.
 
         Args:
@@ -229,12 +244,7 @@ class FSAction:
         Returns:
             OperationResult indicating success or failure
         """
-        compress_flags = {
-            "gz": "z",
-            "bz2": "j",
-            "xz": "J",
-            None: ""
-        }
+        compress_flags = {"gz": "z", "bz2": "j", "xz": "J", None: ""}
         flag = compress_flags.get(compress, "z")
         cmd = f"tar -c{flag}f {shlex.quote(archive_path)} -C {shlex.quote(self.resolver.resolve('.'))} {shlex.quote(self.resolver.resolve(source_path))}"
         self.protocol.run_command(cmd, self.state)
@@ -268,7 +278,9 @@ class FSAction:
         output = self.protocol.run_command(cmd, self.state)
         return [line.strip() for line in output.strip().split("\n") if line.strip()]
 
-    def create_zip(self, source_path: str, archive_path: str, recursive: bool = True) -> OperationResult:
+    def create_zip(
+        self, source_path: str, archive_path: str, recursive: bool = True
+    ) -> OperationResult:
         """Create a zip archive.
 
         Args:
@@ -297,7 +309,9 @@ class FSAction:
         resolved_extract = self.resolver.resolve(extract_to, self.state.cwd)
         cmd = f"unzip {shlex.quote(archive_path)} -d {shlex.quote(resolved_extract)}"
         self.protocol.run_command(cmd, self.state)
-        return OperationResult(success=True, message=f"Zip archive extracted to: {resolved_extract}")
+        return OperationResult(
+            success=True, message=f"Zip archive extracted to: {resolved_extract}"
+        )
 
     def list_zip(self, archive_path: str) -> List[str]:
         """List contents of a zip archive.
@@ -343,7 +357,11 @@ class FSAction:
         """
         if not output_path:
             # Remove .gz extension
-            output_path = archive_path.rstrip(".gz") if archive_path.endswith(".gz") else f"{archive_path}.out"
+            output_path = (
+                archive_path.rstrip(".gz")
+                if archive_path.endswith(".gz")
+                else f"{archive_path}.out"
+            )
         cmd = f"gunzip -k {shlex.quote(archive_path)} -c > {shlex.quote(output_path)}"
         self.protocol.run_command(cmd, self.state)
         return OperationResult(success=True, message=f"File decompressed: {output_path}")

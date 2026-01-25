@@ -71,7 +71,12 @@ class FakeProtocol:
             )
 
         # Mock git branch
-        if "branch" in command and "-a" not in command and "create" not in command and "delete" not in command:
+        if (
+            "branch" in command
+            and "-a" not in command
+            and "create" not in command
+            and "delete" not in command
+        ):
             return CommandResult(
                 exit_code=0,
                 stdout="* main\n  develop\n  feature/new-feature\n",

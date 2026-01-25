@@ -1,9 +1,11 @@
 """Tests for PSAction linux_parsers usage."""
+
 import sys
 import types
 
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.models.command_result import CommandResult
+
 # Note: PSAction imports linux_parsers at module level, so tests must monkeypatch sys.modules before importing it.
 
 
@@ -22,19 +24,29 @@ def test_list_uses_parser(monkeypatch):
     ps_mod = types.ModuleType("linux_parsers.parsers.process.ps")
 
     def parse_ps_aux(out: str):
-        return [{"USER": "root", "PID": "1", "COMMAND": "init"}, {"USER": "alice", "PID": "123", "COMMAND": "python"}]
+        return [
+            {"USER": "root", "PID": "1", "COMMAND": "init"},
+            {"USER": "alice", "PID": "123", "COMMAND": "python"},
+        ]
 
     ps_mod.parse_ps_aux = parse_ps_aux
 
     monkeypatch.setitem(sys.modules, "linux_parsers", types.ModuleType("linux_parsers"))
-    monkeypatch.setitem(sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers"))
-    monkeypatch.setitem(sys.modules, "linux_parsers.parsers.process", types.ModuleType("linux_parsers.parsers.process"))
+    monkeypatch.setitem(
+        sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers")
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "linux_parsers.parsers.process",
+        types.ModuleType("linux_parsers.parsers.process"),
+    )
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.process.ps", ps_mod)
 
     # import after monkeypatching so module-level imports succeed
     sys.modules.pop("remote_machine.actions.ps", None)
     from importlib import reload
     import remote_machine.actions.ps as _ps_mod
+
     reload(_ps_mod)
     from remote_machine.actions.ps import PSAction
 
@@ -49,19 +61,29 @@ def test_list_by_user_and_find(monkeypatch):
     ps_mod = types.ModuleType("linux_parsers.parsers.process.ps")
 
     def parse_ps_aux(out: str):
-        return [{"USER": "root", "PID": "1", "COMMAND": "init"}, {"USER": "alice", "PID": "123", "COMMAND": "python app.py"}]
+        return [
+            {"USER": "root", "PID": "1", "COMMAND": "init"},
+            {"USER": "alice", "PID": "123", "COMMAND": "python app.py"},
+        ]
 
     ps_mod.parse_ps_aux = parse_ps_aux
 
     monkeypatch.setitem(sys.modules, "linux_parsers", types.ModuleType("linux_parsers"))
-    monkeypatch.setitem(sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers"))
-    monkeypatch.setitem(sys.modules, "linux_parsers.parsers.process", types.ModuleType("linux_parsers.parsers.process"))
+    monkeypatch.setitem(
+        sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers")
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "linux_parsers.parsers.process",
+        types.ModuleType("linux_parsers.parsers.process"),
+    )
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.process.ps", ps_mod)
 
     # import after monkeypatching so module-level imports succeed
     sys.modules.pop("remote_machine.actions.ps", None)
     from importlib import reload
     import remote_machine.actions.ps as _ps_mod
+
     reload(_ps_mod)
     from remote_machine.actions.ps import PSAction
 
@@ -83,14 +105,21 @@ def test_get_info_and_kill(monkeypatch):
     ps_mod.parse_ps_aux = parse_ps_aux
 
     monkeypatch.setitem(sys.modules, "linux_parsers", types.ModuleType("linux_parsers"))
-    monkeypatch.setitem(sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers"))
-    monkeypatch.setitem(sys.modules, "linux_parsers.parsers.process", types.ModuleType("linux_parsers.parsers.process"))
+    monkeypatch.setitem(
+        sys.modules, "linux_parsers.parsers", types.ModuleType("linux_parsers.parsers")
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "linux_parsers.parsers.process",
+        types.ModuleType("linux_parsers.parsers.process"),
+    )
     monkeypatch.setitem(sys.modules, "linux_parsers.parsers.process.ps", ps_mod)
 
     # import after monkeypatching so module-level imports succeed
     sys.modules.pop("remote_machine.actions.ps", None)
     from importlib import reload
     import remote_machine.actions.ps as _ps_mod
+
     reload(_ps_mod)
     from remote_machine.actions.ps import PSAction
 

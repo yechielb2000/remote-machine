@@ -1,4 +1,5 @@
 """Network actions."""
+
 from __future__ import annotations
 
 import shlex
@@ -24,9 +25,8 @@ from remote_machine.models.network_types import (
     FirewallStatus,
     NetworkStats,
     Route,
-    IPAddress, 
+    IPAddress,
     TCPConnection,
-
 )
 
 
@@ -52,25 +52,33 @@ class NETAction:
 
         try:
             iplist = self.ip_list()
-            ip_count = iplist.count if hasattr(iplist, "count") else len(getattr(iplist, "addresses", []))
+            ip_count = (
+                iplist.count if hasattr(iplist, "count") else len(getattr(iplist, "addresses", []))
+            )
         except Exception:
             ip_count = 0
 
         try:
             routes = self.route_list()
-            routes_count = routes.count if hasattr(routes, "count") else len(getattr(routes, "routes", []))
+            routes_count = (
+                routes.count if hasattr(routes, "count") else len(getattr(routes, "routes", []))
+            )
         except Exception:
             routes_count = 0
 
         try:
             conns = self.tcp_connections()
-            conns_count = conns.count if hasattr(conns, "count") else len(getattr(conns, "connections", []))
+            conns_count = (
+                conns.count if hasattr(conns, "count") else len(getattr(conns, "connections", []))
+            )
         except Exception:
             conns_count = 0
 
         try:
             ports = self.listening_ports()
-            ports_count = ports.count if hasattr(ports, "count") else len(getattr(ports, "ports", []))
+            ports_count = (
+                ports.count if hasattr(ports, "count") else len(getattr(ports, "ports", []))
+            )
         except Exception:
             ports_count = 0
 
@@ -148,11 +156,15 @@ class NETAction:
 
     def ip_add(self, interface: str, address: str) -> None:
         """Add `address` to `interface` (CIDR ok). Args: interface, address"""
-        self.protocol.run_command(f"ip addr add {shlex.quote(address)} dev {shlex.quote(interface)}", self.state)
+        self.protocol.run_command(
+            f"ip addr add {shlex.quote(address)} dev {shlex.quote(interface)}", self.state
+        )
 
     def ip_delete(self, interface: str, address: str) -> None:
         """Remove `address` from `interface`. Args: interface, address"""
-        self.protocol.run_command(f"ip addr del {shlex.quote(address)} dev {shlex.quote(interface)}", self.state)
+        self.protocol.run_command(
+            f"ip addr del {shlex.quote(address)} dev {shlex.quote(interface)}", self.state
+        )
 
     def ip_list(self, interface: str | None = None) -> IPAddressList:
         """Return a list of IP addresses; optionally filtered by interface."""
@@ -191,7 +203,6 @@ class NETAction:
 
         parsed = parse_ip_r(self.protocol.run_command(cmd), self.state)
 
-
         routes: list[Route] = []
         for r in parsed:
             routes.append(
@@ -219,6 +230,7 @@ class NETAction:
             # support src/dst keys or LocalAddress_Port/PeerAddress_Port
             src = c.get("src") or c.get("LocalAddress_Port") or c.get("local")
             dst = c.get("dst") or c.get("PeerAddress_Port") or c.get("remote")
+
             def _split_addr(a: str | None):
                 if not a:
                     return "", 0
@@ -344,7 +356,9 @@ class NETAction:
             except Exception:
                 pass
 
-        return DNSResult(hostname=hostname, ipv4_addresses=ipv4, ipv6_addresses=ipv6, canonical_name=cname)
+        return DNSResult(
+            hostname=hostname, ipv4_addresses=ipv4, ipv6_addresses=ipv6, canonical_name=cname
+        )
 
     def route_add(self, destination: str, gateway: str, interface: str | None = None) -> None:
         """Add a route to `destination` via `gateway` (optionally `interface`). Args: destination, gateway, interface"""
@@ -431,16 +445,18 @@ class NETAction:
             if interface and name != interface:
                 continue
 
-            items.append(BandwidthInfo(
-                interface=name,
-                bytes_sent=tx,
-                bytes_received=rx,
-                packets_sent=packets_tx,
-                packets_received=packets_rx,
-                errors_in=errs_in,
-                errors_out=errs_out,
-                dropped_in=drop_in,
-                dropped_out=drop_out,
-            ))
+            items.append(
+                BandwidthInfo(
+                    interface=name,
+                    bytes_sent=tx,
+                    bytes_received=rx,
+                    packets_sent=packets_tx,
+                    packets_received=packets_rx,
+                    errors_in=errs_in,
+                    errors_out=errs_out,
+                    dropped_in=drop_in,
+                    dropped_out=drop_out,
+                )
+            )
 
         return BandwidthList(items=items, count=len(items))

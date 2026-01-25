@@ -1,4 +1,5 @@
 """Git actions."""
+
 from __future__ import annotations
 
 import shlex
@@ -46,9 +47,7 @@ class GitAction:
         branch = branch_output.strip()
 
         # Get current commit hash
-        commit_output = self.protocol.run_command(
-            f"git -C {shlex.quote(repo_path)} rev-parse HEAD"
-        )
+        commit_output = self.protocol.run_command(f"git -C {shlex.quote(repo_path)} rev-parse HEAD")
         commit_hash = commit_output.strip()
 
         # Get modified files count
@@ -249,9 +248,7 @@ class GitAction:
         self.protocol.run_command(" ".join(cmd_parts), self.state)
         return OperationResult(success=True, message=f"Repository cloned to {target_path}")
 
-    def commit(
-        self, repo_path: str = ".", message: str = "", all: bool = False
-    ) -> OperationResult:
+    def commit(self, repo_path: str = ".", message: str = "", all: bool = False) -> OperationResult:
         """Create a Git commit.
 
         Args:
@@ -355,7 +352,9 @@ class GitAction:
         Returns:
             OperationResult indicating success or failure
         """
-        self.protocol.run_command(f"git -C {shlex.quote(repo_path)} checkout {shlex.quote(ref)}", self.state)
+        self.protocol.run_command(
+            f"git -C {shlex.quote(repo_path)} checkout {shlex.quote(ref)}", self.state
+        )
         return OperationResult(success=True, message=f"Checked out {ref}")
 
     def create_branch(self, repo_path: str = ".", branch_name: str = "") -> OperationResult:
@@ -368,10 +367,14 @@ class GitAction:
         Returns:
             OperationResult indicating success or failure
         """
-        self.protocol.run_command(f"git -C {shlex.quote(repo_path)} branch {shlex.quote(branch_name)}", self.state)
+        self.protocol.run_command(
+            f"git -C {shlex.quote(repo_path)} branch {shlex.quote(branch_name)}", self.state
+        )
         return OperationResult(success=True, message=f"Branch {branch_name} created")
 
-    def delete_branch(self, repo_path: str = ".", branch_name: str = "", force: bool = False) -> OperationResult:
+    def delete_branch(
+        self, repo_path: str = ".", branch_name: str = "", force: bool = False
+    ) -> OperationResult:
         """Delete a branch.
 
         Args:
@@ -383,7 +386,10 @@ class GitAction:
             OperationResult indicating success or failure
         """
         force_flag = "-D" if force else "-d"
-        self.protocol.run_command(f"git -C {shlex.quote(repo_path)} branch {force_flag} {shlex.quote(branch_name)}", self.state)
+        self.protocol.run_command(
+            f"git -C {shlex.quote(repo_path)} branch {force_flag} {shlex.quote(branch_name)}",
+            self.state,
+        )
         return OperationResult(success=True, message=f"Branch {branch_name} deleted")
 
     def diff(self, repo_path: str = ".", file_path: Optional[str] = None) -> str:
@@ -415,7 +421,9 @@ class GitAction:
         if not ref1:
             ref1 = "HEAD~1"
 
-        cmd = f"git -C {shlex.quote(repo_path)} diff --stat {shlex.quote(ref1)}...{shlex.quote(ref2)}"
+        cmd = (
+            f"git -C {shlex.quote(repo_path)} diff --stat {shlex.quote(ref1)}...{shlex.quote(ref2)}"
+        )
         output = self.protocol.run_command(cmd, self.state)
 
         diff_stats = []
