@@ -56,7 +56,7 @@ class RemoteMachine:
         self.git = actions.GitAction(ssh, self.state)
         self.firewall = actions.FirewallAction(ssh, self.state)
         self.cron = actions.CronAction(ssh, self.state)
-        self.python = actions.PythonEnvAction(ssh, self.state)
+        self.python = actions.PythonAction(ssh, self.state)
         self.onie = actions.ONIEAction(ssh, self.state)
         self.proxy = actions.ProxyAction(self)
 

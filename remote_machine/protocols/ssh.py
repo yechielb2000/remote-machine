@@ -126,7 +126,7 @@ class SSHProtocol:
 
         return " && ".join(parts)
 
-    def run_command(self, command: str, state: RemoteState) -> str:
+    def run_command(self, command: str, state: RemoteState, thread: bool = False) -> str:
         """Execute a command and return stdout, handling errors.
 
         Args:
@@ -138,7 +138,9 @@ class SSHProtocol:
 
         Raises:
             Appropriate exception if command fails (based on ErrorMapper)
-        """
+        """ 
+        if thread:
+            command += " &"
         result = self.exec(command, state)
         ErrorMapper.raise_if_error(result)
         return result.stdout
