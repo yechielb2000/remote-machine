@@ -3,7 +3,6 @@
 from remote_machine.errors.exceptions import (
     AlreadyExists,
     CommandError,
-    ConnectionError,
     InvalidArgument,
     NotFound,
     PermissionDenied,
@@ -14,7 +13,6 @@ from remote_machine.errors.exceptions import (
 
 __all__ = [
     "RemoteError",
-    "ConnectionError",
     "CommandError",
     "PermissionDenied",
     "NotFound",

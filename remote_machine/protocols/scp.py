@@ -12,10 +12,11 @@ Notes:
 
 from __future__ import annotations
 
-import paramiko
 from pathlib import Path
 
-from remote_machine.errors.exceptions import ConnectionError, NotFound, PermissionDenied
+import paramiko
+
+from remote_machine.errors.exceptions import NotFound, PermissionDenied
 from remote_machine.models.scp_types import SCPResult
 from remote_machine.protocols.ssh import SSHProtocol
 

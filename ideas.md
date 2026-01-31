@@ -4,19 +4,6 @@ This document outlines potential actions that could be added to the remote-machi
 
 ## Package Management Actions
 
-1. **PackageManager Action** - Abstraction over apt/yum/dnf/pacman
-   - Install/uninstall/update packages
-   - Search packages
-   - List installed packages
-   - Check for updates
-   - Upgrade system packages
-
-2. **PythonEnv Action** - Python-specific management
-   - pip install/uninstall packages
-   - Create virtual environments
-   - Manage requirements.txt
-   - List installed packages
-   - Check package versions
 
 3. **NodePackageManager Action** - NPM/Yarn management
    - Install/uninstall npm packages
@@ -52,13 +39,6 @@ This document outlines potential actions that could be added to the remote-machi
    - AWS CLI (S3, EC2, Lambda, etc.)
    - Azure CLI (az commands)
    - Google Cloud (gcloud)
-
-8. **Docker Compose Action** - Multi-container orchestration
-   - List services
-   - Start/stop services
-   - View logs
-   - Scale services
-   - Execute commands in services
 
 9. **Ansible Action** - Configuration management
    - Run playbooks
@@ -110,25 +90,12 @@ This document outlines potential actions that could be added to the remote-machi
 
 ## File & Archive Actions
 
-16. **Archive Action** - tar/zip/gzip/bzip2 *(Part of FSAction)*
-    - Create archives
-    - Extract archives
-    - List archive contents
-    - Compress files
-    - Test archive integrity
-
 17. **Rsync Action** - File synchronization
     - Sync directories
     - Backup files
     - Exclude patterns
     - Monitor bandwidth
     - Resume transfers
-
-18. **SFTPAction** - Secure file transfer (enhanced)
-    - Upload/download files
-    - List remote files
-    - Create directories
-    - Manage permissions
 
 ## Network & Monitoring Actions
 
@@ -138,13 +105,6 @@ This document outlines potential actions that could be added to the remote-machi
     - Test endpoints
     - Check response codes
     - Monitor uptime
-
-20. **FirewallAction** - iptables/firewalld/ufw *(Implemented)*
-    - List rules
-    - Add/remove rules
-    - Open/close ports
-    - Enable/disable service
-    - View status
 
 21. **MonitoringAction** - htop/top/systemd monitoring
     - Real-time process monitoring

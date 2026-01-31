@@ -1,12 +1,14 @@
 """SSH protocol implementation using Paramiko."""
 
-import paramiko
-from typing import Any
 
-from remote_machine.errors.exceptions import ConnectionError
+
+import paramiko
+
+
 from remote_machine.errors.error_mapper import ErrorMapper
 from remote_machine.models.command_result import CommandResult
 from remote_machine.models.remote_state import RemoteState
+
 
 
 class SSHProtocol:
@@ -65,7 +67,7 @@ class SSHProtocol:
                     password=self.password,
                 )
         except Exception as e:
-            raise ConnectionError(f"Failed to connect to {self.host}: {e}")
+            raise ConnectionError(f"Failed to connect to {self.host}") from e
 
     def disconnect(self) -> None:
         """Close SSH connection."""
@@ -100,7 +102,7 @@ class SSHProtocol:
                 exit_code=exit_code,
             )
         except Exception as e:
-            raise ConnectionError(f"Command execution failed: {e}")
+            raise ConnectionError(f"Command execution failed  {command=:}") from e
 
     def _build_command(self, command: str, state: RemoteState) -> str:
         """Build full command with environment and cwd.

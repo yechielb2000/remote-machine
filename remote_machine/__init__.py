@@ -8,7 +8,6 @@ running unit tests that stub those dependencies.
 from remote_machine.errors import (
     AlreadyExists,
     CommandError,
-    ConnectionError,
     InvalidArgument,
     NotFound,
     PermissionDenied,
@@ -22,13 +21,10 @@ from remote_machine.utils import PathResolver
 __version__ = "0.1.0"
 
 __all__ = [
-    "RemoteMachine",
     "RemoteState",
     "CommandResult",
     "Capabilities",
-    "SSHProtocol",
     "RemoteError",
-    "ConnectionError",
     "CommandError",
     "PermissionDenied",
     "NotFound",

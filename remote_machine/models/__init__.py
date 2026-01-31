@@ -5,6 +5,15 @@ from remote_machine.models.capabilities import Capabilities
 from remote_machine.models.command_result import CommandResult
 from remote_machine.models.remote_state import RemoteState
 
+# Common types
+from remote_machine.models.common_types import (
+    BoolResult,
+    CountResult,
+    OperationResult,
+    IDResult,
+    StringResult,
+)
+
 # Filesystem types
 from remote_machine.models.filesystem_types import (
     DiskUsage,
@@ -117,11 +126,26 @@ from remote_machine.models.cron_types import (
     UserCronJobs,
 )
 
+from remote_machine.models.http_types import (
+    HTTPErrorResult,
+    HTTPDownloadResult,
+    HTTPResponse,
+    HTTPStatusResult,
+    HTTPResultType,
+    HTTPDownloadResultType,
+)
+
 __all__ = [
     # Core
     "Capabilities",
     "CommandResult",
     "RemoteState",
+    # Common
+    "BoolResult",
+    "CountResult",
+    "OperationResult",
+    "IDResult",
+    "StringResult",
     # Filesystem
     "FileInfo",
     "DirectoryEntry",
@@ -204,4 +228,11 @@ __all__ = [
     "CronSchedule",
     "SystemCronFile",
     "UserCronJobs",
+    # HTTP
+    "HTTPErrorResult",
+    "HTTPDownloadResult",
+    "HTTPResponse",
+    "HTTPStatusResult",
+    "HTTPResultType",
+    "HTTPDownloadResultType",
 ]
