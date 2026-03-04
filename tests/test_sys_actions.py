@@ -30,6 +30,12 @@ class FakeProtocol:
         # default empty
         return CommandResult(command=command, stdout="", stderr="", exit_code=0)
 
+    def run_command(self, command: str, state: RemoteState, thread: bool = False) -> str:
+        result = self.exec(command, state)
+        if result.exit_code != 0:
+            raise Exception(f"Command failed: {result.stderr}")
+        return result.stdout
+
 
 def test_uname_parsing():
     responses = {

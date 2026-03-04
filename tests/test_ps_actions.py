@@ -22,6 +22,12 @@ class FakeProtocol:
                 return CommandResult(command=command, stdout=out, stderr="", exit_code=0)
         return CommandResult(command=command, stdout="", stderr="", exit_code=0)
 
+    def run_command(self, command: str, state: RemoteState, thread: bool = False) -> str:
+        result = self.exec(command, state)
+        if result.exit_code != 0:
+            raise Exception(f"Command failed: {result.stderr}")
+        return result.stdout
+
 
 def test_list_uses_parser(monkeypatch):
     ps_mod = types.ModuleType("linux_parsers.parsers.process.ps")

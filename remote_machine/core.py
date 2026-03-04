@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional, List
 
 from remote_machine import actions
 from remote_machine.errors import ProtocolNotAvailable, PermissionDenied
+from remote_machine.errors.error_mapper import ErrorMapper
 from remote_machine.models.capabilities import Capabilities
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
@@ -145,6 +146,28 @@ class RemoteMachine:
         # Sudo availability
         result = ssh.exec("sudo -n true", self.state)
         self.state.has_sudo = result.exit_code == 0
+
+    def run(self, command: str) -> str:
+        """Run a command on the remote machine and return stdout.
+
+        Args:
+            command: Command to execute
+
+        Returns:
+            stdout as string
+
+        Raises:
+            Appropriate exception if command fails
+        """
+        ssh: SSHProtocol = self._protocols["ssh"]
+        result = ssh.exec(command, self.state)
+        ErrorMapper.raise_if_error(result)
+        return result.stdout
+
+    @property
+    def host(self) -> str:
+        """Return the remote host address."""
+        return self._protocols["ssh"].host
 
     def add_ssh_layer(self, ssh: SSHProtocol) -> None:
         """Add an SSHProtocol to the layers (for tunnel chaining)."""

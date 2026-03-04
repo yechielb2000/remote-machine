@@ -161,6 +161,33 @@ with RemoteMachine("example.com", "user") as conn:
     all_vars = conn.env.list()
 ```
 
+## Parallel Execution
+
+Run commands on multiple machines concurrently for efficient bulk operations.
+
+```python
+from remote_machine import RemoteMachine
+from remote_machine.parallel import ParallelExecutor
+
+# Create connections to multiple hosts
+clients = [
+    RemoteMachine("host1.example.com", "user", key_path="~/.ssh/id_rsa"),
+    RemoteMachine("host2.example.com", "user", key_path="~/.ssh/id_rsa"),
+    RemoteMachine("host3.example.com", "user", key_path="~/.ssh/id_rsa"),
+]
+
+# Execute command in parallel
+executor = ParallelExecutor(max_workers=5)
+results = executor.run(clients, "uptime")
+
+# Process results
+for result in results:
+    if result.success:
+        print(f"{result.host}: {result.output}")
+    else:
+        print(f"{result.host} failed: {result.error}")
+```
+
 ## Logging & Telemetry
 
 RemoteMachine supports structured logging and optional telemetry for monitoring and observability.
