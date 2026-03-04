@@ -2,12 +2,15 @@
 
 
 
+import time
 import paramiko
 
 
 from remote_machine.errors.error_mapper import ErrorMapper
+from remote_machine.logging import get_logger
 from remote_machine.models.command_result import CommandResult
 from remote_machine.models.remote_state import RemoteState
+from remote_machine.telemetry import TelemetryBackend
 
 
 
@@ -25,6 +28,7 @@ class SSHProtocol:
         key_path: str | None = None,
         password: str | None = None,
         port: int = 22,
+        telemetry: TelemetryBackend | None = None,
     ):
         """Initialize SSH connection parameters.
 
@@ -33,12 +37,14 @@ class SSHProtocol:
             user: SSH username
             key_path: Path to private key file
             port: SSH port (default 22)
+            telemetry: Optional telemetry backend
         """
         self.host = host
         self.user = user
         self.key_path = key_path
         self.password = password
         self.port = port
+        self.telemetry = telemetry
         self._client: paramiko.SSHClient | None = None
 
     @property
@@ -48,6 +54,8 @@ class SSHProtocol:
 
     def connect(self) -> None:
         """Establish SSH connection (imports paramiko lazily)."""
+        logger = get_logger(__name__)
+
         try:
             self._client = paramiko.SSHClient()
             self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -66,7 +74,23 @@ class SSHProtocol:
                     username=self.user,
                     password=self.password,
                 )
+
+            if self.telemetry:
+                try:
+                    self.telemetry.record_connection(self.host)
+                except Exception:
+                    logger.warning("telemetry failure", exc_info=True)
+
+            logger.info(
+                "ssh_connection_established",
+                extra={"host": self.host, "user": self.user},
+            )
+
         except Exception as e:
+            logger.error(
+                "ssh_connection_failed",
+                extra={"host": self.host, "user": self.user, "error": str(e)},
+            )
             raise ConnectionError(f"Failed to connect to {self.host}") from e
 
     def disconnect(self) -> None:
@@ -85,24 +109,72 @@ class SSHProtocol:
         Returns:
             CommandResult with stdout, stderr, exit_code
         """
-        if not self._client:
-            raise ConnectionError("Not connected to remote machine")
-
-        # Build full command with environment and cwd
-        full_command = self._build_command(command, state)
+        logger = get_logger(__name__)
+        start = time.time()
 
         try:
+            if not self._client:
+                raise ConnectionError("Not connected to remote machine")
+
+            # Build full command with environment and cwd
+            full_command = self._build_command(command, state)
+
             _, stdout, stderr = self._client.exec_command(full_command)
             exit_code = stdout.channel.recv_exit_status()
 
-            return CommandResult(
+            result = CommandResult(
                 command=command,
                 stdout=stdout.read().decode("utf-8", errors="replace"),
                 stderr=stderr.read().decode("utf-8", errors="replace"),
                 exit_code=exit_code,
             )
+
+            duration_ms = (time.time() - start) * 1000
+
+            if self.telemetry:
+                try:
+                    self.telemetry.record_command(
+                        host=self.host,
+                        duration_ms=duration_ms,
+                        success=True,
+                    )
+                except Exception:
+                    logger.warning("telemetry failure", exc_info=True)
+
+            logger.info(
+                "remote_command_success",
+                extra={
+                    "host": self.host,
+                    "command": command,
+                    "duration_ms": duration_ms,
+                },
+            )
+
+            return result
+
         except Exception as e:
-            raise ConnectionError(f"Command execution failed  {command=:}") from e
+            duration_ms = (time.time() - start) * 1000
+
+            if self.telemetry:
+                try:
+                    self.telemetry.record_command(
+                        host=self.host,
+                        duration_ms=duration_ms,
+                        success=False,
+                    )
+                except Exception:
+                    logger.warning("telemetry failure", exc_info=True)
+
+            logger.error(
+                "remote_command_failed",
+                extra={
+                    "host": self.host,
+                    "command": command,
+                    "error": str(e),
+                },
+            )
+
+            raise
 
     def _build_command(self, command: str, state: RemoteState) -> str:
         """Build full command with environment and cwd.

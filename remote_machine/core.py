@@ -10,6 +10,7 @@ from remote_machine.errors import ProtocolNotAvailable, PermissionDenied
 from remote_machine.models.capabilities import Capabilities
 from remote_machine.models.remote_state import RemoteState
 from remote_machine.protocols.ssh import SSHProtocol
+from remote_machine.telemetry import TelemetryBackend
 
 
 class RemoteMachine:
@@ -33,12 +34,13 @@ class RemoteMachine:
         password: Optional[str] = None,
         port: int = 22,
         parent: Optional["RemoteMachine"] = None,
+        telemetry: Optional[TelemetryBackend] = None,
     ):
         self._ssh_layers: List[SSHProtocol] = []
         self._protocols: Dict[str, Any] = {}
         self.parent = parent
 
-        ssh = SSHProtocol(host=host, user=user, key_path=key_path, password=password, port=port)
+        ssh = SSHProtocol(host=host, user=user, key_path=key_path, password=password, port=port, telemetry=telemetry)
         self._protocols["ssh"] = ssh
         self._ssh_layers.append(ssh)
 

@@ -46,4 +46,8 @@ def __getattr__(name: str):
         from .protocols.ssh import SSHProtocol as _SSH
 
         return _SSH
+    if name == "TelemetryBackend":
+        from .telemetry import TelemetryBackend as _TB
+
+        return _TB
     raise AttributeError(name)
