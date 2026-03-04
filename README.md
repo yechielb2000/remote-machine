@@ -161,6 +161,78 @@ with RemoteMachine("example.com", "user") as conn:
     all_vars = conn.env.list()
 ```
 
+## Logging & Telemetry
+
+RemoteMachine supports structured logging and optional telemetry for monitoring and observability.
+
+### Structured Logging
+
+Configure logging to capture command execution details:
+
+```python
+import logging
+import json_log_formatter
+
+# Configure JSON logging
+formatter = json_log_formatter.JSONFormatter()
+handler = logging.StreamHandler()
+handler.setFormatter(formatter)
+
+root = logging.getLogger()
+root.addHandler(handler)
+root.setLevel(logging.INFO)
+
+# RemoteMachine will now log structured events
+from remote_machine import RemoteMachine
+
+with RemoteMachine("example.com", "user") as conn:
+    conn.fs.read("/etc/hostname")  # Logs: {"message": "remote_command_success", "host": "example.com", ...}
+```
+
+### Telemetry (Optional)
+
+Enable metrics collection with Prometheus:
+
+```python
+pip install prometheus_client
+```
+
+```python
+from remote_machine import RemoteMachine
+from remote_machine.metrics.prometheus import PrometheusTelemetry
+
+# Create telemetry backend
+telemetry = PrometheusTelemetry()
+
+# Pass to RemoteMachine
+with RemoteMachine("example.com", "user", telemetry=telemetry) as conn:
+    conn.fs.read("/etc/hostname")  # Records metrics
+
+# Metrics available:
+# - remote_machine_commands_total{host="example.com",status="success"} 1
+# - remote_machine_command_duration_seconds{host="example.com"} 0.123
+```
+
+### Custom Telemetry
+
+Implement your own telemetry backend:
+
+```python
+from remote_machine.telemetry import TelemetryBackend
+
+class CustomTelemetry(TelemetryBackend):
+    def record_command(self, host: str, duration_ms: float, success: bool):
+        # Your custom logic here
+        pass
+
+    def record_connection(self, host: str):
+        # Your custom logic here
+        pass
+
+telemetry = CustomTelemetry()
+conn = RemoteMachine("example.com", "user", telemetry=telemetry)
+```
+
 ## Architecture
 
 RemoteMachine composes an SSH protocol, a client-side state (cwd, env), and action modules (filesystem, processes, network, system, services, devices, env).

@@ -39,6 +39,9 @@ dev = [
     "isort>=5.0",
     "flake8>=6.0",
 ]
+metrics = [
+    "prometheus_client>=0.20.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/yechielb2000/remote-machine"
