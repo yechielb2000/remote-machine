@@ -1,6 +1,8 @@
 """Error mapping and exception tests."""
 
 import pytest
+pytestmark = pytest.mark.errors
+
 from remote_machine.types import CommandResult
 from remote_machine.errors import (
     CommandError,

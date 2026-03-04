@@ -1,6 +1,8 @@
 """Unit tests for RemoteState and PathResolver."""
 
 import pytest
+pytestmark = pytest.mark.core
+
 from remote_machine.types import RemoteState, CommandResult
 from remote_machine.utils import PathResolver
 

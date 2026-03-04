@@ -1,5 +1,8 @@
 """Tests for PSAction linux_parsers usage."""
 
+import pytest
+pytestmark = [pytest.mark.actions, pytest.mark.ps]
+
 import sys
 import types
 

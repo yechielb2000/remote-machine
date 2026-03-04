@@ -1,6 +1,8 @@
 """Tests for Docker actions."""
 
 import pytest
+pytestmark = [pytest.mark.actions, pytest.mark.docker]
+
 from unittest.mock import Mock
 from datetime import datetime
 

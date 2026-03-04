@@ -1,5 +1,8 @@
 """Tests that SYSAction prefers linux_parsers when available."""
 
+import pytest
+pytestmark = pytest.mark.integration
+
 import sys
 import types
 
