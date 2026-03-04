@@ -23,6 +23,12 @@ class FakeProtocol:
             command=command, stdout="", stderr="", exit_code=0, success=True
         )
 
+    def run_command(self, command: str, state, thread: bool = False) -> str:
+        result = self.exec(command, state)
+        if result.exit_code != 0:
+            raise Exception(f"Command failed: {result.stderr}")
+        return result.stdout
+
 
 def test_interfaces_uses_parser(monkeypatch):
     ip_mod = types.ModuleType("linux_parsers.parsers.network.ip")

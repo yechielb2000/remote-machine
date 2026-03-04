@@ -59,11 +59,11 @@ class SYSAction:
 
     def uname(self) -> UnameInfo:
         """Get system name and information as a dataclass."""
-        sysname = self.protocol.run_command("uname -s", self.state)
-        nodename = self.protocol.run_command("uname -n", self.state)
-        release = self.protocol.run_command("uname -r", self.state)
-        version = self.protocol.run_command("uname -v", self.state)
-        machine = self.protocol.run_command("uname -m", self.state)
+        sysname = self.protocol.run_command("uname -s", self.state).strip()
+        nodename = self.protocol.run_command("uname -n", self.state).strip()
+        release = self.protocol.run_command("uname -r", self.state).strip()
+        version = self.protocol.run_command("uname -v", self.state).strip()
+        machine = self.protocol.run_command("uname -m", self.state).strip()
 
         return UnameInfo(
             sysname=sysname,
