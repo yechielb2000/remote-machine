@@ -77,7 +77,21 @@ strict_optional = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v --cov=remote_machine --cov-report=term-only"
+addopts = "-v"
+markers = [
+    "core: Core functionality tests",
+    "actions: Action module tests",
+    "protocols: Protocol tests",
+    "errors: Error handling tests",
+    "integration: Integration tests",
+    "ps: Process action tests",
+    "net: Network action tests",
+    "sys: System action tests",
+    "device: Device action tests",
+    "docker: Docker action tests",
+    "git: Git action tests",
+    "logging: Logging and telemetry tests",
+]
 
 [dependency-groups]
 dev = [

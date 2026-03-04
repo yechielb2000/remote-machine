@@ -1,5 +1,8 @@
 """Unit tests for SYSAction parsing behavior."""
 
+import pytest
+pytestmark = [pytest.mark.actions, pytest.mark.sys]
+
 import os
 import sys
 

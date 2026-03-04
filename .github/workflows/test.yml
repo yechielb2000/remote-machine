@@ -1,0 +1,43 @@
+name: Unit Tests
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+        test-suite:
+          - { name: "core", mark: "core" }
+          - { name: "ps-actions", mark: "ps" }
+          - { name: "net-actions", mark: "net" }
+          - { name: "sys-actions", mark: "sys" }
+          - { name: "device-actions", mark: "device" }
+          - { name: "docker-actions", mark: "docker" }
+          - { name: "git-actions", mark: "git" }
+          - { name: "errors", mark: "errors" }
+          - { name: "integration", mark: "integration" }
+          - { name: "logging", mark: "logging" }
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+    - name: Run ${{ matrix.test-suite.name }} tests
+      run: |
+        pytest -m ${{ matrix.test-suite.mark }} --cov=remote_machine --cov-report=xml --cov-report=term-missing
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: ${{ matrix.test-suite.name }}
+        name: ${{ matrix.test-suite.name }}-tests

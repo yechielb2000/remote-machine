@@ -1,6 +1,8 @@
 """Tests for Git actions."""
 
 import pytest
+pytestmark = [pytest.mark.actions, pytest.mark.git]
+
 from unittest.mock import Mock
 from datetime import datetime
 

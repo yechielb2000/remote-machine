@@ -1,5 +1,8 @@
 """Tests for NETAction linux_parsers usage."""
 
+import pytest
+pytestmark = [pytest.mark.actions, pytest.mark.net]
+
 import sys
 import types
 

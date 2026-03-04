@@ -1,5 +1,8 @@
 """Tests for DeviceAction linux_parsers usage."""
 
+import pytest
+pytestmark = [pytest.mark.actions, pytest.mark.device]
+
 import sys
 import types
 
