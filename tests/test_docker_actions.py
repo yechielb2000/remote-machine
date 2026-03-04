@@ -24,6 +24,7 @@ class FakeProtocol:
         if "docker ps" in command and "--format" in command:
             if "-a" in command:
                 return CommandResult(
+                    command=command,
                     exit_code=0,
                     stdout='{"ID":"abc123","Names":"my-container","Image":"ubuntu:20.04","Status":"Up 2 hours","State":"running","CreatedAt":"2024-01-20T10:00:00Z","Ports":"","Command":"bash"}\n'
                     '{"ID":"def456","Names":"stopped-container","Image":"nginx:latest","Status":"Exited (0) 1 hour ago","State":"exited","CreatedAt":"2024-01-20T09:00:00Z","Ports":"80/tcp","Command":"nginx"}',
@@ -31,6 +32,7 @@ class FakeProtocol:
                 )
             else:
                 return CommandResult(
+                    command=command,
                     exit_code=0,
                     stdout='{"ID":"abc123","Names":"my-container","Image":"ubuntu:20.04","Status":"Up 2 hours","State":"running","CreatedAt":"2024-01-20T10:00:00Z","Ports":"","Command":"bash"}',
                     stderr="",
@@ -39,6 +41,7 @@ class FakeProtocol:
         # Mock docker images
         if "docker images" in command and "--format" in command:
             return CommandResult(
+                command=command,
                 exit_code=0,
                 stdout='{"ID":"sha256:abc123","Repository":"ubuntu","Tag":"20.04","CreatedAt":"2024-01-15T10:00:00Z","Size":"77.8MB"}\n'
                 '{"ID":"sha256:def456","Repository":"nginx","Tag":"latest","CreatedAt":"2024-01-10T10:00:00Z","Size":"142MB"}',
@@ -48,6 +51,7 @@ class FakeProtocol:
         # Mock docker run
         if "docker run" in command:
             return CommandResult(
+                command=command,
                 exit_code=0,
                 stdout="container_id_12345",
                 stderr="",
@@ -55,15 +59,16 @@ class FakeProtocol:
 
         # Mock docker start/stop
         if "docker start" in command or "docker stop" in command:
-            return CommandResult(exit_code=0, stdout="container_name", stderr="")
+            return CommandResult(command=command, exit_code=0, stdout="container_name", stderr="")
 
         # Mock docker rm
         if "docker rm" in command:
-            return CommandResult(exit_code=0, stdout="container_id", stderr="")
+            return CommandResult(command=command, exit_code=0, stdout="container_id", stderr="")
 
         # Mock docker exec
         if "docker exec" in command:
             return CommandResult(
+                command=command,
                 exit_code=0,
                 stdout="command output",
                 stderr="",
@@ -72,6 +77,7 @@ class FakeProtocol:
         # Mock docker logs
         if "docker logs" in command:
             return CommandResult(
+                command=command,
                 exit_code=0,
                 stdout="2024-01-20 10:00:00 - Application started\n2024-01-20 10:00:01 - Ready to accept requests",
                 stderr="",
@@ -80,6 +86,7 @@ class FakeProtocol:
         # Mock docker stats
         if "docker stats" in command and "--no-stream" in command:
             return CommandResult(
+                command=command,
                 exit_code=0,
                 stdout='{"Container":"abc123","CPUPerc":"0.05%","MemUsage":"120.5MiB / 16GiB","MemPerc":"0.73%","NetInput":"1.2kB","NetOutput":"2.5kB","BlockInput":"0B","BlockOutput":"0B"}',
                 stderr="",
@@ -88,6 +95,7 @@ class FakeProtocol:
         # Mock docker info
         if "docker info" in command and "--format" in command:
             return CommandResult(
+                command=command,
                 exit_code=0,
                 stdout='{"Containers":5,"ContainersRunning":2,"ContainersPaused":0,"ContainersStopped":3,"Images":10,"Driver":"overlay2","MemTotal":17179869184,"MemAvailable":8589934592,"NCPU":8,"KernelVersion":"5.10.0","OperatingSystem":"Docker Desktop"}',
                 stderr="",
@@ -95,10 +103,16 @@ class FakeProtocol:
 
         # Mock docker pull/push
         if "docker pull" in command or "docker push" in command:
-            return CommandResult(exit_code=0, stdout="Digest: sha256:abc123", stderr="")
+            return CommandResult(command=command, exit_code=0, stdout="Digest: sha256:abc123", stderr="")
 
         # Default
-        return CommandResult(exit_code=0, stdout="", stderr="")
+        return CommandResult(command=command, exit_code=0, stdout="", stderr="")
+
+    def run_command(self, command: str, state: RemoteState, thread: bool = False) -> str:
+        result = self.exec(command, state)
+        if result.exit_code != 0:
+            raise Exception(f"Command failed: {result.stderr}")
+        return result.stdout
 
 
 def test_docker_list_containers():

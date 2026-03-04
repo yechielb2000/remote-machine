@@ -34,8 +34,8 @@ def test_list_uses_parser(monkeypatch):
 
     def parse_ps_aux(out: str):
         return [
-            {"USER": "root", "PID": "1", "COMMAND": "init"},
-            {"USER": "alice", "PID": "123", "COMMAND": "python"},
+            {"USER": "root", "pid": "1", "COMMAND": "init"},
+            {"USER": "alice", "pid": "123", "COMMAND": "python"},
         ]
 
     ps_mod.parse_ps_aux = parse_ps_aux
@@ -63,7 +63,7 @@ def test_list_uses_parser(monkeypatch):
     p = PSAction(proto, RemoteState())
 
     ps = p.list()
-    assert any(x.user == "alice" for x in ps.processes)
+    assert any(x.user == "alice" for x in ps)
 
 
 def test_list_by_user_and_find(monkeypatch):
@@ -109,7 +109,7 @@ def test_get_info_and_kill(monkeypatch):
     ps_mod = types.ModuleType("linux_parsers.parsers.process.ps")
 
     def parse_ps_aux(out: str):
-        return [{"USER": "root", "PID": "42", "COMMAND": "sleep 100"}]
+        return [{"USER": "root", "pid": "42", "COMMAND": "sleep 100"}]
 
     ps_mod.parse_ps_aux = parse_ps_aux
 

@@ -174,7 +174,7 @@ class SYSAction:
     def cpu_info(self) -> List[CPUInfo]:
         """Parse /proc/cpuinfo and return per-CPU info."""
         processors = parse_proc_cpuinfo_file(
-            self.protocol.run_command("cat /proc/cpuinfo"), self.state
+            self.protocol.run_command("cat /proc/cpuinfo", self.state)
         )
 
         cpu_infos: List[CPUInfo] = []

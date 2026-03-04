@@ -21,6 +21,12 @@ class FakeProtocol:
                 return CommandResult(command=command, stdout=out, stderr="", exit_code=0)
         return CommandResult(command=command, stdout="", stderr="", exit_code=0)
 
+    def run_command(self, command: str, state: RemoteState, thread: bool = False) -> str:
+        result = self.exec(command, state)
+        if result.exit_code != 0:
+            raise Exception(f"Command failed: {result.stderr}")
+        return result.stdout
+
 
 def _mk_pkg_hierarchy(monkeypatch, package_path: str, module: types.ModuleType):
     """Ensure parent package modules exist in sys.modules for a nested module path."""

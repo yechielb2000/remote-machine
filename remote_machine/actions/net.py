@@ -169,7 +169,7 @@ class NETAction:
     def ip_list(self, interface: str | None = None) -> IPAddressList:
         """Return a list of IP addresses; optionally filtered by interface."""
         cmd = "ip a" if interface is None else f"ip a show dev {shlex.quote(interface)}"
-        parsed = parse_ip_a(self.protocol.run_command(cmd), self.state)
+        parsed = parse_ip_a(self.protocol.run_command(cmd, self.state), self.state)
 
         addresses: list[IPAddress] = []
 
@@ -201,7 +201,7 @@ class NETAction:
         """Return routing table entries as a list of dicts."""
         cmd = "ip r"
 
-        parsed = parse_ip_r(self.protocol.run_command(cmd), self.state)
+        parsed = parse_ip_r(self.protocol.run_command(cmd, self.state), self.state)
 
         routes: list[Route] = []
         for r in parsed:

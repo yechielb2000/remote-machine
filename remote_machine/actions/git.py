@@ -42,36 +42,36 @@ class GitAction:
         """
         # Get current branch
         branch_output = self.protocol.run_command(
-            f"git -C {shlex.quote(repo_path)} rev-parse --abbrev-ref HEAD"
+            f"git -C {shlex.quote(repo_path)} rev-parse --abbrev-ref HEAD", self.state
         )
         branch = branch_output.strip()
 
         # Get current commit hash
-        commit_output = self.protocol.run_command(f"git -C {shlex.quote(repo_path)} rev-parse HEAD")
+        commit_output = self.protocol.run_command(f"git -C {shlex.quote(repo_path)} rev-parse HEAD", self.state)
         commit_hash = commit_output.strip()
 
         # Get modified files count
         modified_output = self.protocol.run_command(
-            f"git -C {shlex.quote(repo_path)} diff --name-only"
+            f"git -C {shlex.quote(repo_path)} diff --name-only", self.state
         )
         modified_count = len([f for f in modified_output.strip().split("\n") if f])
 
         # Get untracked files count
         untracked_output = self.protocol.run_command(
-            f"git -C {shlex.quote(repo_path)} ls-files --others --exclude-standard"
+            f"git -C {shlex.quote(repo_path)} ls-files --others --exclude-standard", self.state
         )
         untracked_count = len([f for f in untracked_output.strip().split("\n") if f])
 
         # Get staged files count
         staged_output = self.protocol.run_command(
-            f"git -C {shlex.quote(repo_path)} diff --cached --name-only"
+            f"git -C {shlex.quote(repo_path)} diff --cached --name-only", self.state
         )
         staged_count = len([f for f in staged_output.strip().split("\n") if f])
 
         # Get ahead/behind info
         try:
             ahead_behind = self.protocol.run_command(
-                f"git -C {shlex.quote(repo_path)} rev-list --left-right --count @{{u}}...HEAD"
+                f"git -C {shlex.quote(repo_path)} rev-list --left-right --count @{{u}}...HEAD", self.state
             )
             parts = ahead_behind.strip().split()
             behind = int(parts[0]) if len(parts) > 0 else 0
@@ -143,7 +143,7 @@ class GitAction:
         """
         # Get current branch
         current_branch_output = self.protocol.run_command(
-            f"git -C {shlex.quote(repo_path)} rev-parse --abbrev-ref HEAD"
+            f"git -C {shlex.quote(repo_path)} rev-parse --abbrev-ref HEAD", self.state
         )
         current_branch = current_branch_output.strip()
 
@@ -428,25 +428,20 @@ class GitAction:
 
         diff_stats = []
         for line in output.strip().split("\n"):
-            if not line.strip() or line.startswith(" "):
+            if not line.strip() or "|" not in line:
                 continue
 
-            # Parse format: " filename | insertions insertions, deletions deletions"
+            # Parse format: " filename | insertions deletions"
             parts = line.split("|")
             if len(parts) != 2:
                 continue
 
             file_path = parts[0].strip()
-            changes = parts[1].strip().split()
+            changes = parts[1].strip()
 
-            insertions = 0
-            deletions = 0
-
-            for part in changes:
-                if "+" in part:
-                    insertions = int(part.replace("+", ""))
-                elif "-" in part:
-                    deletions = int(part.replace("-", ""))
+            nums = changes.split()
+            insertions = int(nums[0]) if nums else 0
+            deletions = int(nums[1]) if len(nums) > 1 else 0
 
             diff_stats.append(
                 DiffStat(
